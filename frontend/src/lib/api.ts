@@ -161,6 +161,8 @@ export interface AddRouterData {
   client_name?: string;
   monthly_price?: number;
   notes?: string;
+  /** Skip MikroTik connection test (use when router not reachable from VPS; you'll run connect commands manually) */
+  skipConnectionTest?: boolean;
 }
 
 export interface RouterStats {

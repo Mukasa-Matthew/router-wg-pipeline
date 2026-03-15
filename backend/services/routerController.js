@@ -17,16 +17,22 @@ async function addRouter(routerData, onStep) {
   let wgIp = null;
   let routerId = null;
 
+  const skipConnectionTest = routerData.skipConnectionTest === true;
+
   try {
-    emit(1, 'Testing MikroTik connection...', 'active');
-    const connected = await mikrotikService.testConnection(
-      initialIp,
-      routerData.username,
-      routerData.password,
-      routerData.api_port || 8728
-    );
-    if (!connected) throw new Error('Cannot connect to MikroTik API');
-    emit(1, 'MikroTik connected', 'done');
+    if (!skipConnectionTest) {
+      emit(1, 'Testing MikroTik connection...', 'active');
+      const connected = await mikrotikService.testConnection(
+        initialIp,
+        routerData.username,
+        routerData.password,
+        routerData.api_port || 8728
+      );
+      if (!connected) throw new Error('Cannot connect to MikroTik API');
+      emit(1, 'MikroTik connected', 'done');
+    } else {
+      emit(1, 'Skipped (manual setup)', 'done');
+    }
 
     emit(2, 'Generating WireGuard keys...', 'active');
     const { privateKey, publicKey: pk } = await wireguardService.generateKeypair();

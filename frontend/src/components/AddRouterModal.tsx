@@ -3,7 +3,7 @@ import { X, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { api, type AddRouterData } from '../lib/api';
 
 const STEPS = [
-  'Testing MikroTik connection',
+  'Testing MikroTik connection (or skipped)',
   'Generating WireGuard keys',
   'Assigning WireGuard IP',
   'Adding peer to VPS',
@@ -195,6 +195,19 @@ export function AddRouterModal({
                 <p className="text-xs text-navy-500 mt-1">
                   Initial connection IP. Switches to WireGuard IP after tunnel is established.
                 </p>
+              </div>
+
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                <input
+                  type="checkbox"
+                  id="skipConnectionTest"
+                  checked={form.skipConnectionTest || false}
+                  onChange={(e) => update({ skipConnectionTest: e.target.checked })}
+                  className="mt-1 rounded border-navy-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label htmlFor="skipConnectionTest" className="text-sm text-navy-700 cursor-pointer">
+                  <span className="font-medium">Skip connection test</span> — Use when the router is not reachable from the VPS (e.g. at 10.0.0.1 on your LAN). Keys will be generated and peer added to VPS; you will run the connect commands on the MikroTik manually.
+                </label>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
