@@ -225,19 +225,30 @@ async function deleteHotspotProfile(router, profileName) {
 
 /**
  * Generate vouchers on MikroTik (hotspot users)
+ * Uses limit-uptime so time counts cumulatively across disconnect/reconnect
+ * (unlike session-timeout which resets each session)
+ * @param {Object} router - Router record
+ * @param {string} profile - Profile name
+ * @param {number} count - Number of vouchers
+ * @param {string} prefix - Username prefix
+ * @param {string} [limitUptime] - Validity e.g. "24h", "7d" - enforces cumulative time limit
  */
-async function generateVouchersOnMikrotik(router, profile, count, prefix = 'v') {
+async function generateVouchersOnMikrotik(router, profile, count, prefix = 'v', limitUptime = null) {
   const conn = await connect(router);
   const vouchers = [];
 
   try {
     for (let i = 0; i < count; i++) {
       const username = `${prefix}${generateRandom(6)}`;
-      await conn.write('/ip/hotspot/user/add', [
+      const params = [
         `=name=${username}`,
         `=password=${username}`,
         `=profile=${profile}`,
-      ]);
+      ];
+      if (limitUptime) {
+        params.push(`=limit-uptime=${limitUptime}`);
+      }
+      await conn.write('/ip/hotspot/user/add', params);
       vouchers.push({ username, password: username, profile });
     }
     return vouchers;

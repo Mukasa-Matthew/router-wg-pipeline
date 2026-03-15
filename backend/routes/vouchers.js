@@ -4,6 +4,22 @@ const { requireAuth } = require('../middleware/auth');
 const mikrotikService = require('../services/mikrotikService');
 
 const router = express.Router();
+
+/** Normalize validity to MikroTik format (e.g. 24h, 7d) for limit-uptime */
+function normalizeValidityForMikrotik(v) {
+  if (!v || typeof v !== 'string') return null;
+  const s = v.trim();
+  if (/^\d+(m|h|d)$/i.test(s)) return s;
+  const map = {
+    '6-Hours': '6h', '6-hours': '6h',
+    '12-Hours': '12h', '12-hours': '12h',
+    '24-Hours': '24h', '24-hours': '24h',
+    '1-Day': '1d', '1-day': '1d',
+    '1-Week': '7d', '1-week': '7d',
+    '1-Month': '30d', '1-month': '30d',
+  };
+  return map[s] || null;
+}
 router.use(requireAuth);
 
 /**
@@ -35,12 +51,14 @@ router.post('/generate', async (req, res) => {
     const profilePrice = hp ? parseFloat(hp.price) || 0 : 0;
 
     const countNum = parseInt(count, 10);
-    console.log(`[Router ${routerId}] Generating ${countNum} vouchers`);
+    const limitUptime = normalizeValidityForMikrotik(validity);
+    console.log(`[Router ${routerId}] Generating ${countNum} vouchers${limitUptime ? ` (limit-uptime=${limitUptime})` : ''}`);
     const mikrotikVouchers = await mikrotikService.generateVouchersOnMikrotik(
       router,
       profile,
       countNum,
-      prefix
+      prefix,
+      limitUptime
     );
 
     for (const v of mikrotikVouchers) {
