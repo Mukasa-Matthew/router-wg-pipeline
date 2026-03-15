@@ -52,7 +52,13 @@ apache2ctl configtest && systemctl reload apache2
 chown www-data:www-data /var/www/html/mikhmon/include/config.php
 chmod 664 /var/www/html/mikhmon/include/config.php
 
+# WireGuard firewall (required for router tunnels)
+ufw allow 51820/udp 2>/dev/null || true
+ufw --force enable 2>/dev/null || true
+
 echo "=== Deployment Complete ==="
 echo "Dashboard: http://198.199.76.158/dashboard"
 echo "API: http://198.199.76.158/api"
 echo "MikHmon: http://198.199.76.158/mikhmon"
+echo ""
+echo "WireGuard: UDP 51820 must be open. Run: sudo ufw allow 51820/udp && sudo ufw reload"

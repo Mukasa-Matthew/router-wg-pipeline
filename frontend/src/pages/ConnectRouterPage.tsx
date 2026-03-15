@@ -15,12 +15,14 @@ import { api, type ConnectCommands, type TunnelStatus } from '../lib/api';
 import { PageHeader } from '../components/PageHeader';
 
 const STEPS = [
+  { title: 'Remove existing wg-vps (clean retry)', key: 'step0' as const },
   { title: 'Create WireGuard Interface', key: 'step1' as const },
   { title: 'Add VPS as Peer', key: 'step2' as const },
   { title: "Assign This Router's Unique WireGuard IP", key: 'step3' as const },
-  { title: 'Add Route to VPS', key: 'step4' as const },
-  { title: 'Enable API Port', key: 'step5' as const },
-  { title: 'Verify Tunnel is Working', key: 'step6' as const },
+  { title: 'Add Route to VPS Subnet', key: 'step4' as const },
+  { title: 'Allow WireGuard in Firewall', key: 'step5' as const },
+  { title: 'Enable API Port', key: 'step6' as const },
+  { title: 'Verify Peers', key: 'step7' as const },
 ];
 
 export function ConnectRouterPage() {
@@ -34,6 +36,7 @@ export function ConnectRouterPage() {
   const [doneSteps, setDoneSteps] = useState<Record<number, boolean>>({});
   const [copiedStep, setCopiedStep] = useState<number | null>(null);
   const [autoRedirect, setAutoRedirect] = useState(false);
+  const [reAdding, setReAdding] = useState(false);
 
   const loadCommands = useCallback(async () => {
     if (!routerId) return;
@@ -113,10 +116,10 @@ export function ConnectRouterPage() {
       code{display:block;margin:8px 0;}</style></head><body>
       <h1>Connect ${commands.router_name} to RouterHub</h1>
       <p>Location: ${commands.location || '—'} | WireGuard IP: ${commands.wg_ip}</p>
-      ${STEPS.map((s, i) => `
+      ${STEPS.filter((s) => commands.commands[s.key as keyof typeof commands.commands]).map((s, i) => `
         <div class="step">
           <strong>Step ${i + 1}: ${s.title}</strong>
-          <code>${commands.commands[s.key]}</code>
+          <code>${commands.commands[s.key as keyof typeof commands.commands]}</code>
         </div>
       `).join('')}
       </body></html>
@@ -128,6 +131,19 @@ export function ConnectRouterPage() {
 
   function toggleStepDone(stepIdx: number) {
     setDoneSteps((p) => ({ ...p, [stepIdx]: !p[stepIdx] }));
+  }
+
+  async function handleReAddPeer() {
+    if (!routerId) return;
+    setReAdding(true);
+    try {
+      await api.routers.reAddPeer(routerId);
+      alert('Peer re-added to VPS. Run the connect commands on the MikroTik again.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to re-add peer');
+    } finally {
+      setReAdding(false);
+    }
   }
 
   if (loading || !commands) {
@@ -173,7 +189,10 @@ export function ConnectRouterPage() {
       </div>
 
       <div className="space-y-4 mb-8">
-        {STEPS.map((step, i) => (
+        {STEPS.map((step, i) => {
+          const cmd = commands.commands[step.key as keyof typeof commands.commands];
+          if (!cmd) return null;
+          return (
           <div
             key={step.key}
             className="rounded-2xl border border-navy-200 bg-white p-6 shadow-card"
@@ -196,11 +215,11 @@ export function ConnectRouterPage() {
                   </label>
                 </div>
                 <pre className="p-4 rounded-xl bg-navy-900 text-navy-100 text-sm overflow-x-auto font-mono">
-                  {commands.commands[step.key]}
+                  {cmd}
                 </pre>
               </div>
               <button
-                onClick={() => copyCommand(commands.commands[step.key], i)}
+                onClick={() => copyCommand(cmd, i)}
                 className="p-2 rounded-lg bg-navy-100 hover:bg-navy-200 text-navy-700 transition shrink-0"
                 title="Copy command"
               >
@@ -212,7 +231,8 @@ export function ConnectRouterPage() {
               </button>
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
 
       <div className="flex flex-wrap gap-3 mb-8">
@@ -233,6 +253,15 @@ export function ConnectRouterPage() {
           Test Connection
         </button>
         <button
+          onClick={handleReAddPeer}
+          disabled={reAdding}
+          className="btn-secondary disabled:opacity-60"
+          title="Re-add WireGuard peer to VPS if it wasn't added during router add"
+        >
+          {reAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Shield className="w-5 h-5" />}
+          Re-add Peer to VPS
+        </button>
+        <button
           onClick={() => navigate(`/routers`)}
           className="btn-secondary"
         >
@@ -241,6 +270,20 @@ export function ConnectRouterPage() {
         </button>
       </div>
 
+      {!tunnelStatus?.tunnel_up && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 mb-6">
+          <h3 className="font-semibold text-amber-900 mb-2">Tunnel still offline? Check these:</h3>
+          <ul className="text-sm text-amber-800 space-y-1 list-disc list-inside mb-3">
+            <li><strong>RouterOS 7.6+</strong> required (WireGuard not in ROS 6)</li>
+            <li><strong>VPS firewall:</strong> Run on VPS: <code className="bg-amber-100 px-1 rounded">sudo ufw allow 51820/udp && sudo ufw reload</code></li>
+            <li><strong>Peer on VPS:</strong> If add failed, click &quot;Re-add Peer to VPS&quot; above</li>
+            <li><strong>Run step 0 first</strong> to remove old wg-vps, then run steps 1–6 in order</li>
+          </ul>
+          {commands?.vps_ip && (
+            <p className="text-xs text-amber-700">VPS: {commands.vps_ip}:{commands.wg_port || '51820'} (UDP)</p>
+          )}
+        </div>
+      )}
       {!tunnelStatus?.tunnel_up && (
         <p className="text-sm text-navy-600 mb-4 flex items-center gap-2">
           <Loader2 className="w-4 h-4 animate-spin" />

@@ -73,6 +73,10 @@ export const api = {
       }),
     mikhmonUrl: (id: number) =>
       request<{ url: string }>(`/routers/${id}/mikhmon-url`),
+    reAddPeer: (id: number) =>
+      request<{ success: boolean; message: string }>(`/routers/${id}/re-add-peer`, {
+        method: 'POST',
+      }),
     profiles: {
       list: (id: number) =>
         request<HotspotProfile[]>(`/routers/${id}/profiles`),
@@ -219,13 +223,17 @@ export interface ConnectCommands {
   location: string | null;
   wg_ip: string;
   tunnel_status: string;
+  vps_ip?: string;
+  wg_port?: string;
   commands: {
+    step0?: string;
     step1: string;
     step2: string;
     step3: string;
     step4: string;
     step5: string;
     step6: string;
+    step7?: string;
     all: string;
   };
 }

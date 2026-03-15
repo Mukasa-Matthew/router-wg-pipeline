@@ -135,14 +135,19 @@ router.get('/:id/connect-commands', async (req, res) => {
     const vpsKey = process.env.WG_PUBLIC_KEY || '';
     const vpsIp = process.env.VPS_IP || '';
     const wgPort = process.env.WG_PORT || '51820';
+    const wgSubnet = process.env.WG_SUBNET || '10.10.0';
 
+    // Step 0: Remove existing wg-vps if present (for clean retry). Run each line; ignore errors if interface doesn't exist.
+    const step0 = `/interface wireguard peers remove [ find interface=wg-vps ]
+/interface wireguard remove [ find name=wg-vps ]`;
     const step1 = `/interface wireguard add name=wg-vps listen-port=13231 private-key="${r.wg_private_key}" disabled=no`;
-    const step2 = `/interface wireguard peers add interface=wg-vps public-key="${vpsKey}" endpoint-address=${vpsIp} endpoint-port=${wgPort} allowed-address=10.10.0.0/24 persistent-keepalive=25`;
+    const step2 = `/interface wireguard peers add interface=wg-vps public-key="${vpsKey}" endpoint-address=${vpsIp} endpoint-port=${wgPort} allowed-address=${wgSubnet}.0/24 persistent-keepalive=25`;
     const step3 = `/ip address add address=${r.wg_ip}/24 interface=wg-vps`;
-    const step4 = `/ip route add dst-address=10.10.0.0/24 gateway=wg-vps`;
-    const step5 = `/ip service set api disabled=no`;
-    const step6 = `/interface wireguard peers print`;
-    const all = [step1, step2, step3, step4, step5].join('\n');
+    const step4 = `/ip route add dst-address=${wgSubnet}.0/24 gateway=wg-vps`;
+    const step5 = `/ip firewall filter add action=accept chain=input in-interface=wg-vps place-before=0 comment="RouterHub WireGuard"`;
+    const step6 = `/ip service set api disabled=no`;
+    const step7 = `/interface wireguard peers print`;
+    const all = [step0, step1, step2, step3, step4, step5, step6].join('\n');
 
     const tunnelStatuses = await wireguardService.getTunnelStatus();
     const peer = tunnelStatuses.find(
@@ -160,18 +165,43 @@ router.get('/:id/connect-commands', async (req, res) => {
       location: r.location,
       wg_ip: r.wg_ip,
       tunnel_status,
+      vps_ip: vpsIp,
+      wg_port: wgPort,
       commands: {
+        step0,
         step1,
         step2,
         step3,
         step4,
         step5,
         step6,
+        step7,
         all,
       },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/routers/:id/re-add-peer - Re-add WireGuard peer to VPS (if it wasn't added during router add)
+ */
+router.post('/:id/re-add-peer', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, wg_ip, wg_public_key FROM routers WHERE id = ?',
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Router not found' });
+    const r = rows[0];
+    if (!r.wg_ip || !r.wg_public_key) return res.status(400).json({ error: 'Router has no WireGuard config' });
+
+    await wireguardService.addPeerToVPS(r.wg_public_key, r.wg_ip);
+    res.json({ success: true, message: 'Peer re-added to VPS. Run the connect commands on the MikroTik again.' });
+  } catch (err) {
+    console.error('Re-add peer error:', err);
+    res.status(500).json({ error: err.message || 'Failed to re-add peer' });
   }
 });
 
