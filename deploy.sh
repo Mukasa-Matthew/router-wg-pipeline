@@ -44,6 +44,8 @@ echo "root ALL=(ALL) NOPASSWD: /usr/bin/wg" >> /etc/sudoers
 a2enmod proxy proxy_http headers rewrite 2>/dev/null || true
 cp /var/www/html/routerhub/apache-routerhub.conf /etc/apache2/sites-available/routerhub.conf
 a2ensite routerhub 2>/dev/null || true
+# Disable default site so RouterHub handles all requests (fixes /api 404)
+a2dissite 000-default 2>/dev/null || true
 apache2ctl configtest && systemctl reload apache2
 
 # Permissions for MikHmon config
