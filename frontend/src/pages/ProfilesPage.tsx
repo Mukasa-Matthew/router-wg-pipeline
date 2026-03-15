@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   Loader2,
   Plus,
@@ -242,7 +242,6 @@ function ProfileModal({
 
 export function ProfilesPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const routerId = parseInt(id || '0', 10);
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
   const [loading, setLoading] = useState(true);
