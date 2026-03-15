@@ -16,14 +16,14 @@ const mikrotikService = require('./services/mikrotikService');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Session config
+// Session config (secure: false when using HTTP; set USE_HTTPS=1 when behind HTTPS)
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'routerhub-secret-change-in-production',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.USE_HTTPS === '1',
       maxAge: 24 * 60 * 60 * 1000,
       sameSite: 'lax',
       httpOnly: true,
