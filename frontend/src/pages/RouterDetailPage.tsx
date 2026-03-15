@@ -24,7 +24,7 @@ export function RouterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
-  const { router, tunnelStatus } = useOutletContext<OutletContext>();
+  const { router, tunnelStatus, openVouchers } = useOutletContext<OutletContext>();
   const routerId = parseInt(id || '0', 10);
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
   const [users, setUsers] = useState<HotspotUser[] | null>(null);
@@ -261,16 +261,20 @@ export function RouterDetailPage() {
               <thead>
                 <tr className="border-b border-navy-200 text-left">
                   <th className="py-3 px-4 font-medium text-navy-600">Username</th>
+                  <th className="py-3 px-4 font-medium text-navy-600">IP Assigned</th>
                   <th className="py-3 px-4 font-medium text-navy-600">Uptime</th>
                   <th className="py-3 px-4 font-medium text-navy-600">MAC Address</th>
+                  <th className="py-3 px-4 font-medium text-navy-600">Bundle Expiry Left</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((u, i) => (
                   <tr key={i} className="border-b border-navy-100 last:border-0 hover:bg-navy-50/50">
                     <td className="py-3 px-4 font-medium text-navy-900">{u.user || '—'}</td>
+                    <td className="py-3 px-4 font-mono text-navy-600 text-xs">{u.address || '—'}</td>
                     <td className="py-3 px-4 text-navy-600">{u.uptime || '—'}</td>
                     <td className="py-3 px-4 font-mono text-navy-600 text-xs">{u['mac-address'] || '—'}</td>
+                    <td className="py-3 px-4 text-navy-600">{u['session-time-left'] || '—'}</td>
                   </tr>
                 ))}
               </tbody>

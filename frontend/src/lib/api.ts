@@ -184,6 +184,7 @@ export interface HotspotUser {
   user?: string;
   'uptime'?: string;
   'mac-address'?: string;
+  address?: string;
   'session-time-left'?: string;
   [key: string]: unknown;
 }
