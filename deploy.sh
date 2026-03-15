@@ -40,12 +40,11 @@ cp -r dist/* /var/www/html/dashboard/
 echo "www-data ALL=(ALL) NOPASSWD: /usr/bin/wg" >> /etc/sudoers
 echo "root ALL=(ALL) NOPASSWD: /usr/bin/wg" >> /etc/sudoers
 
-# Install nginx config (conf.d works on Debian, Ubuntu, RHEL, CentOS)
-mkdir -p /etc/nginx/conf.d
-# Disable default site if it would conflict with our default_server
-[ -f /etc/nginx/conf.d/default.conf ] && mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.bak 2>/dev/null || true
-cp /var/www/html/routerhub/nginx-routerhub.conf /etc/nginx/conf.d/routerhub.conf
-nginx -t && systemctl reload nginx
+# Install Apache config (VPS uses Apache, not nginx)
+a2enmod proxy proxy_http headers rewrite 2>/dev/null || true
+cp /var/www/html/routerhub/apache-routerhub.conf /etc/apache2/sites-available/routerhub.conf
+a2ensite routerhub 2>/dev/null || true
+apache2ctl configtest && systemctl reload apache2
 
 # Permissions for MikHmon config
 chown www-data:www-data /var/www/html/mikhmon/include/config.php
