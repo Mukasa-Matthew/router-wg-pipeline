@@ -34,7 +34,7 @@ export function Layout() {
   }
 
   return (
-    <div className="min-h-screen flex bg-grid-pattern">
+    <div className="min-h-screen bg-grid-pattern">
       {/* Mobile menu button */}
       <button
         onClick={() => setSidebarOpen(true)}
@@ -52,10 +52,10 @@ export function Layout() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - fixed on desktop, slide-in on mobile */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-40 w-72 flex flex-col bg-white border-r border-navy-200 shadow-xl transform transition-transform duration-300 ease-out lg:transform-none ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed inset-y-0 left-0 z-40 w-72 flex flex-col bg-white border-r border-navy-200 shadow-xl transform transition-transform duration-300 ease-out lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Header */}
@@ -156,8 +156,8 @@ export function Layout() {
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-auto min-w-0">
+      {/* Main content - scrollable, offset by sidebar on desktop */}
+      <main className="min-h-screen overflow-auto lg:ml-72">
         <div className="p-6 lg:p-8 pt-20 lg:pt-8 max-w-[1600px] mx-auto">
           <Outlet />
         </div>

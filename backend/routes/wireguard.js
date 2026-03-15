@@ -19,12 +19,20 @@ router.get('/status', async (req, res) => {
     liveStatus.forEach((p) => {
       byKey[p.publicKey] = p;
     });
-    const enriched = rows.map((r) => ({
-      ...r,
-      last_handshake: byKey[r.public_key]?.lastHandshake || r.last_handshake,
-      bytes_sent: byKey[r.public_key]?.bytesSent ?? r.bytes_sent,
-      bytes_received: byKey[r.public_key]?.bytesReceived ?? r.bytes_received,
-    }));
+    const now = Date.now();
+    const enriched = rows.map((r) => {
+      const live = byKey[r.public_key];
+      const lastHandshake = live?.lastHandshake || (r.last_handshake ? new Date(r.last_handshake) : null);
+      const minutesAgo = lastHandshake ? (now - lastHandshake.getTime()) / 60000 : null;
+      const connected = lastHandshake && minutesAgo !== null && minutesAgo < 3;
+      return {
+        ...r,
+        last_handshake: lastHandshake ? lastHandshake.toISOString() : r.last_handshake,
+        bytes_sent: live?.bytesSent ?? r.bytes_sent ?? 0,
+        bytes_received: live?.bytesReceived ?? r.bytes_received ?? 0,
+        status: connected ? 'connected' : 'disconnected',
+      };
+    });
     res.json(enriched);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch WireGuard status' });

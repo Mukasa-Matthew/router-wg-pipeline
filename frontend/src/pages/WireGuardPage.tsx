@@ -80,10 +80,10 @@ export function WireGuardPage() {
                   {new Date(peer.last_handshake).toLocaleString()}
                 </span>
               )}
-              {peer.bytes_sent != null && (
+              {peer.bytes_sent != null && (peer.bytes_sent > 0 || (peer.bytes_received || 0) > 0) && (
                 <>
-                  <span>↓ {(peer.bytes_received || 0) / 1024 / 1024} MB</span>
-                  <span>↑ {(peer.bytes_sent || 0) / 1024 / 1024} MB</span>
+                  <span>↓ {((peer.bytes_received || 0) / 1024 / 1024).toFixed(2)} MB</span>
+                  <span>↑ {((peer.bytes_sent || 0) / 1024 / 1024).toFixed(2)} MB</span>
                 </>
               )}
             </div>
