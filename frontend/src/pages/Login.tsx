@@ -35,7 +35,7 @@ export function Login() {
         <div className="flex items-center justify-center gap-4 mb-10">
           <div className="p-5 rounded-2xl bg-white shadow-elevated border border-navy-200/80">
             <div className="p-3 rounded-xl bg-[#059669] shadow-lg flex items-center justify-center">
-              <img src="/logo.svg" alt="RouterHub" className="w-10 h-10" />
+              <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="RouterHub" className="w-10 h-10" />
             </div>
           </div>
           <div>

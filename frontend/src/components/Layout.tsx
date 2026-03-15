@@ -68,7 +68,7 @@ export function Layout() {
             className="flex items-center gap-3 group"
           >
             <div className="p-2.5 rounded-xl bg-[#059669] shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-200 flex items-center justify-center">
-              <img src="/logo.svg" alt="RouterHub" className="w-6 h-6" />
+              <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="RouterHub" className="w-6 h-6" />
             </div>
             <div className="text-left">
               <span className="font-bold text-navy-900 text-lg block leading-tight">RouterHub</span>
