@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  background: #f1f5f9;
+  color: #0f172a;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Subtle grid background */
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(to right, rgb(226 232 240 / 0.4) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(226 232 240 / 0.4) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Focus ring for accessibility */
+*:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Reusable button styles - ensure visibility */
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-all;
+    background-color: #059669;
+    color: white;
+    border: 2px solid #047857;
+    box-shadow: 0 2px 8px rgb(5 150 105 / 0.35);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: #047857;
+    border-color: #065f46;
+    box-shadow: 0 4px 12px rgb(5 150 105 / 0.4);
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all;
+    background-color: #e2e8f0;
+    color: #334155;
+    border: 2px solid #94a3b8;
+  }
+  .btn-secondary:hover {
+    background-color: #cbd5e1;
+    border-color: #64748b;
+  }
+}

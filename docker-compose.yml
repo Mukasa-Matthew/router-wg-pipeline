@@ -1,0 +1,39 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS:-routerhub_secret}
+      MYSQL_ALLOW_EMPTY_PASSWORD: "no"
+      MYSQL_DATABASE: routerhub
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$$MYSQL_ROOT_PASSWORD\" || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build: ./backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASS: ${DB_PASS:-routerhub_secret}
+      DB_NAME: routerhub
+      SESSION_SECRET: ${SESSION_SECRET:-routerhub-docker-secret}
+      VPS_IP: ${VPS_IP:-}
+      WG_PUBLIC_KEY: ${WG_PUBLIC_KEY:-}
+      WG_PRIVATE_KEY: ${WG_PRIVATE_KEY:-}
+      WG_SUBNET: ${WG_SUBNET:-10.10.0}
+      WG_PORT: ${WG_PORT:-51820}
+      WG_INTERFACE: ${WG_INTERFACE:-wg0}
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
