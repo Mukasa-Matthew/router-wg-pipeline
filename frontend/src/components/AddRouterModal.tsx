@@ -49,6 +49,15 @@ export function AddRouterModal({
     setLoading(true);
 
     try {
+      // When skipping connection test, use simple POST (fast, no SSE). Apache buffers SSE by default.
+      if (form.skipConnectionTest) {
+        const { router_id } = await api.routers.add(form);
+        setForm(initial);
+        onSuccess(router_id);
+        onClose();
+        return;
+      }
+
       const { jobId } = await api.routers.addWithProgress(form);
 
       const es = new EventSource(api.routers.progressUrl(jobId), { withCredentials: true });
