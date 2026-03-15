@@ -40,9 +40,9 @@ cp -r dist/* /var/www/html/dashboard/
 echo "www-data ALL=(ALL) NOPASSWD: /usr/bin/wg" >> /etc/sudoers
 echo "root ALL=(ALL) NOPASSWD: /usr/bin/wg" >> /etc/sudoers
 
-# Install nginx config
-cp /var/www/html/routerhub/nginx-routerhub.conf /etc/nginx/sites-available/routerhub
-ln -sf /etc/nginx/sites-available/routerhub /etc/nginx/sites-enabled/routerhub
+# Install nginx config (conf.d works on Debian, Ubuntu, RHEL, CentOS)
+mkdir -p /etc/nginx/conf.d
+cp /var/www/html/routerhub/nginx-routerhub.conf /etc/nginx/conf.d/routerhub.conf
 nginx -t && systemctl reload nginx
 
 # Permissions for MikHmon config
