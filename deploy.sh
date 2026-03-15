@@ -11,8 +11,8 @@ fi
 # Install PM2
 npm install -g pm2
 
-# Setup MySQL routerhub user (run manually if needed)
-# mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS routerhub; CREATE USER 'routerhub'@'localhost' IDENTIFIED BY 'CHANGE_PASSWORD'; GRANT ALL ON routerhub.* TO 'routerhub'@'localhost'; FLUSH PRIVILEGES;"
+# MySQL already configured:
+# Host: localhost | Database: routerhub | User: routerhub | Password: RouterHub2026
 
 # Backend setup
 cd /var/www/html/routerhub/backend
