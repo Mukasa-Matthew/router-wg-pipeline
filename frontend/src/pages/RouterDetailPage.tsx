@@ -10,17 +10,18 @@ import {
   Loader2,
 } from 'lucide-react';
 import { api, type Router, type TunnelStatus, type HotspotProfile } from '../lib/api';
+import { useToast } from '../contexts/ToastContext';
 
 type OutletContext = { router: Router; tunnelStatus: TunnelStatus | null };
 
 export function RouterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const { router, tunnelStatus } = useOutletContext<OutletContext>();
   const routerId = parseInt(id || '0', 10);
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
   const [mikhmonLoading, setMikhmonLoading] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!routerId) return;
@@ -29,8 +30,7 @@ export function RouterDetailPage() {
 
   async function openMikHmon() {
     if (!tunnelStatus?.tunnel_up) {
-      setToast('Tunnel must be online to open MikHmon');
-      setTimeout(() => setToast(null), 3000);
+      toast.warning('Tunnel must be online to open MikHmon');
       return;
     }
     setMikhmonLoading(true);
@@ -38,8 +38,7 @@ export function RouterDetailPage() {
       const { url } = await api.routers.mikhmonUrl(routerId);
       window.open(url, '_blank');
     } catch (err) {
-      setToast(err instanceof Error ? err.message : 'Failed to get MikHmon URL');
-      setTimeout(() => setToast(null), 3000);
+      toast.error(err instanceof Error ? err.message : 'Failed to get MikHmon URL');
     } finally {
       setMikhmonLoading(false);
     }
@@ -49,12 +48,6 @@ export function RouterDetailPage() {
 
   return (
     <div>
-      {toast && (
-        <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800">
-          {toast}
-        </div>
-      )}
-
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-navy-200 bg-white p-6 shadow-card">
             <h3 className="font-semibold text-navy-900 mb-4">Router Info</h3>
@@ -106,9 +99,9 @@ export function RouterDetailPage() {
                 <dt className="text-sm text-navy-500">Status</dt>
                 <dd>
                   {tunnelStatus?.tunnel_up ? (
-                    <span className="text-primary-600 font-medium">Online ✅</span>
+                    <span className="text-primary-600 font-medium">Online</span>
                   ) : (
-                    <span className="text-red-600 font-medium">Offline ❌</span>
+                    <span className="text-red-600 font-medium">Offline</span>
                   )}
                 </dd>
               </div>

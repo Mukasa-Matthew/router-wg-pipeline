@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Loader2, Wifi, Activity } from 'lucide-react';
+import { Shield, Loader2, Activity } from 'lucide-react';
 import { api, type WireGuardPeer } from '../lib/api';
 import { PageHeader } from '../components/PageHeader';
 
@@ -93,12 +93,11 @@ export function WireGuardPage() {
 
       {peers.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-navy-200 bg-white p-16 text-center">
-          <div className="inline-flex p-6 rounded-3xl bg-navy-100 mb-6">
-            <Wifi className="w-16 h-16 text-navy-400" />
+          <div className="inline-flex p-6 rounded-3xl bg-gradient-to-br from-primary-50 to-accent-50 mb-6">
+            <Shield className="w-16 h-16 text-primary-500" strokeWidth={1.5} />
           </div>
-          <p className="text-navy-600">
-            No WireGuard tunnels. Add a router to create tunnels.
-          </p>
+          <p className="text-navy-600 font-medium">No WireGuard tunnels yet.</p>
+          <p className="text-sm text-navy-500 mt-1">Add a router and run the connect commands to create tunnels.</p>
         </div>
       )}
     </div>

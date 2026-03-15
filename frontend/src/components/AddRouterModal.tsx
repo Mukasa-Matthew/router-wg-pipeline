@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { api, type AddRouterData } from '../lib/api';
 
@@ -116,13 +116,31 @@ export function AddRouterModal({
     }
   }
 
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [open, loading, onClose]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-900/50 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-elevated border border-navy-200 max-h-[90vh] overflow-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-900/50 backdrop-blur-sm"
+      onClick={() => !loading && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-router-title"
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl bg-white shadow-elevated border border-navy-200 max-h-[90vh] overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-6 border-b border-navy-200">
-          <h2 className="text-lg font-bold text-navy-900">Add Router</h2>
+          <h2 id="add-router-title" className="text-lg font-bold text-navy-900">Add Router</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg bg-navy-100 border border-navy-300 text-navy-700 hover:bg-navy-200 transition"

@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import type { Router } from '../lib/api';
 import { api } from '../lib/api';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 interface RouterCardProps {
   router: Router;
@@ -28,6 +30,8 @@ export function RouterCard({
   onManage,
   onVouchers,
 }: RouterCardProps) {
+  const toast = useToast();
+  const { confirm } = useConfirm();
   const [menuOpen, setMenuOpen] = useState(false);
   const [users, setUsers] = useState<number | null>(null);
   const [pendingExport, setPendingExport] = useState<number | null>(null);
@@ -57,9 +61,10 @@ export function RouterCard({
     setLoading(true);
     try {
       await api.routers.reboot(router.id);
+      toast.success('Router reboot initiated');
       onRefresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Reboot failed');
+      toast.error(err instanceof Error ? err.message : 'Reboot failed');
     } finally {
       setLoading(false);
     }
@@ -78,15 +83,21 @@ export function RouterCard({
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete router "${router.name}"? This will remove WireGuard config.`))
-      return;
+    const ok = await confirm({
+      title: 'Delete router',
+      message: `Delete "${router.name}"? This will remove the WireGuard peer and all associated data.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setMenuOpen(false);
     setLoading(true);
     try {
       await api.routers.delete(router.id);
+      toast.success('Router deleted');
       onRefresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Delete failed');
+      toast.error(err instanceof Error ? err.message : 'Delete failed');
     } finally {
       setLoading(false);
     }

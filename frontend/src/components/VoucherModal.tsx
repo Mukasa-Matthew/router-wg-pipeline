@@ -9,6 +9,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { api, type Voucher, type Router, type HotspotProfile } from '../lib/api';
+import { useToast } from '../contexts/ToastContext';
 
 interface VoucherModalProps {
   routerId: number | null;
@@ -16,6 +17,7 @@ interface VoucherModalProps {
 }
 
 export function VoucherModal({ routerId, onClose }: VoucherModalProps) {
+  const toast = useToast();
   const [router, setRouter] = useState<Router | null>(null);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [pendingExport, setPendingExport] = useState<number | null>(null);
@@ -26,6 +28,14 @@ export function VoucherModal({ routerId, onClose }: VoucherModalProps) {
   const [count, setCount] = useState(10);
   const [prefix, setPrefix] = useState('v');
   const [copied, setCopied] = useState<number | null>(null);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
 
   useEffect(() => {
     if (!routerId) return;
@@ -64,7 +74,7 @@ export function VoucherModal({ routerId, onClose }: VoucherModalProps) {
       setVouchers((p) => [...res.vouchers, ...p]);
       setPendingExport((prev) => (prev ?? 0) + res.vouchers.length);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Generate failed');
+      toast.error(err instanceof Error ? err.message : 'Generate failed');
     } finally {
       setGenLoading(false);
     }
@@ -80,10 +90,19 @@ export function VoucherModal({ routerId, onClose }: VoucherModalProps) {
   if (!routerId) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-900/50 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-elevated border border-navy-200 max-h-[90vh] overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-900/50 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="voucher-modal-title"
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl bg-white shadow-elevated border border-navy-200 max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-6 border-b border-navy-200">
-          <h2 className="text-lg font-bold text-navy-900 flex items-center gap-2">
+          <h2 id="voucher-modal-title" className="text-lg font-bold text-navy-900 flex items-center gap-2">
             <div className="p-2 rounded-lg bg-primary-50">
               <Key className="w-5 h-5 text-primary-600" />
             </div>
@@ -105,7 +124,7 @@ export function VoucherModal({ routerId, onClose }: VoucherModalProps) {
               <select
                 value={profile}
                 onChange={(e) => setProfile(e.target.value)}
-                className="min-w-[200px] px-3 py-2 rounded-xl border border-navy-200 bg-navy-50/50 text-navy-900"
+                className="min-w-[200px] input-base py-2"
               >
                 {profiles.length === 0 && (
                   <option value="">No profiles — add in Profiles tab</option>
@@ -125,7 +144,7 @@ export function VoucherModal({ routerId, onClose }: VoucherModalProps) {
                 onChange={(e) => setCount(parseInt(e.target.value, 10) || 10)}
                 min={1}
                 max={100}
-                className="w-20 px-3 py-2 rounded-xl border border-navy-200 bg-navy-50/50 text-navy-900"
+                className="w-20 input-base py-2"
               />
             </div>
             {profile && count > 0 && (() => {
@@ -143,7 +162,7 @@ export function VoucherModal({ routerId, onClose }: VoucherModalProps) {
               <input
                 value={prefix}
                 onChange={(e) => setPrefix(e.target.value)}
-                className="w-20 px-3 py-2 rounded-xl border border-navy-200 bg-navy-50/50 text-navy-900"
+                className="w-20 input-base py-2"
               />
             </div>
             <button
@@ -165,7 +184,7 @@ export function VoucherModal({ routerId, onClose }: VoucherModalProps) {
               onClick={(e) => {
                 if (pendingExport === 0) {
                   e.preventDefault();
-                  alert('No new vouchers to export. Generate vouchers first.');
+                  toast.warning('No new vouchers to export. Generate vouchers first.');
                 }
               }}
               title={pendingExport === 0 ? 'No new vouchers to export' : `Export ${pendingExport} new voucher(s)`}

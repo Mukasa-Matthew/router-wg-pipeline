@@ -12,6 +12,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { api, type ConnectCommands, type TunnelStatus } from '../lib/api';
+import { useToast } from '../contexts/ToastContext';
 import { PageHeader } from '../components/PageHeader';
 
 const STEPS = [
@@ -26,6 +27,7 @@ const STEPS = [
 ];
 
 export function ConnectRouterPage() {
+  const toast = useToast();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const routerId = parseInt(id || '0', 10);
@@ -138,9 +140,9 @@ export function ConnectRouterPage() {
     setReAdding(true);
     try {
       await api.routers.reAddPeer(routerId);
-      alert('Peer re-added to VPS. Run the connect commands on the MikroTik again.');
+      toast.success('Peer re-added to VPS. Run the connect commands on the MikroTik again.');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to re-add peer');
+      toast.error(err instanceof Error ? err.message : 'Failed to re-add peer');
     } finally {
       setReAdding(false);
     }
@@ -304,8 +306,8 @@ export function ConnectRouterPage() {
               <div>
                 <p className="font-semibold text-primary-800">
                   {autoRedirect
-                    ? 'Tunnel is UP ✅ Redirecting to router dashboard...'
-                    : `Tunnel is UP ✅ Last handshake: ${tunnelStatus.minutes_ago} minute(s) ago`}
+                    ? 'Tunnel is UP — Redirecting to router dashboard...'
+                    : `Tunnel is UP — Last handshake: ${tunnelStatus.minutes_ago} minute(s) ago`}
                 </p>
                 <p className="text-sm text-primary-700 mt-1">
                   Data sent: {(tunnelStatus.bytes_sent / 1024 / 1024).toFixed(2)} MB | Received:{' '}
@@ -317,7 +319,7 @@ export function ConnectRouterPage() {
             <div className="flex items-center gap-3">
               <XCircle className="w-8 h-8 text-red-600 shrink-0" />
               <p className="font-semibold text-red-800">
-                Tunnel is DOWN ❌ Make sure you ran all commands above
+                Tunnel is DOWN — Make sure you ran all commands above
               </p>
             </div>
           )}

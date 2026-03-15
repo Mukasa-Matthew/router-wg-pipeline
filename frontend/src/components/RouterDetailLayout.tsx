@@ -2,6 +2,7 @@ import { useParams, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { ArrowLeft, Wifi, FileText, Link2, ExternalLink, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api, type Router, type TunnelStatus } from '../lib/api';
+import { useToast } from '../contexts/ToastContext';
 
 const TABS = [
   { path: '', label: 'Overview', icon: Wifi },
@@ -14,11 +15,11 @@ export function RouterDetailLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const routerId = parseInt(id || '0', 10);
+  const toast = useToast();
   const [router, setRouter] = useState<Router | null>(null);
   const [tunnelStatus, setTunnelStatus] = useState<TunnelStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [mikhmonLoading, setMikhmonLoading] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!routerId) return;
@@ -40,8 +41,7 @@ export function RouterDetailLayout() {
 
   async function openMikHmon() {
     if (!tunnelStatus?.tunnel_up) {
-      setToast('Tunnel must be online to open MikHmon');
-      setTimeout(() => setToast(null), 3000);
+      toast.warning('Tunnel must be online to open MikHmon');
       return;
     }
     setMikhmonLoading(true);
@@ -49,8 +49,7 @@ export function RouterDetailLayout() {
       const { url } = await api.routers.mikhmonUrl(routerId);
       window.open(url, '_blank');
     } catch (err) {
-      setToast(err instanceof Error ? err.message : 'Failed to get MikHmon URL');
-      setTimeout(() => setToast(null), 3000);
+      toast.error(err instanceof Error ? err.message : 'Failed to get MikHmon URL');
     } finally {
       setMikhmonLoading(false);
     }
@@ -117,12 +116,6 @@ export function RouterDetailLayout() {
           </button>
         )}
       </div>
-
-      {toast && (
-        <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800">
-          {toast}
-        </div>
-      )}
 
       <Outlet context={{ router, tunnelStatus }} />
     </div>

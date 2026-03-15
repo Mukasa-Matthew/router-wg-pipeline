@@ -76,8 +76,9 @@ export function VouchersPage() {
       </div>
 
       {routers.length === 0 && (
-        <div className="rounded-2xl border-2 border-dashed border-navy-200 bg-white p-16 text-center text-navy-600">
-          No routers. Add a router first to generate vouchers.
+        <div className="rounded-2xl border-2 border-dashed border-navy-200 bg-white p-16 text-center">
+          <p className="text-navy-600 font-medium">No routers yet.</p>
+          <p className="text-sm text-navy-500 mt-1">Add a router first to generate vouchers.</p>
         </div>
       )}
 

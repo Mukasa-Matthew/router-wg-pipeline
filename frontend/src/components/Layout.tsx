@@ -91,7 +91,7 @@ export function Layout() {
           </p>
           <div className="space-y-1">
             {nav.map(({ path, icon: Icon, label, desc }) => {
-              const isActive = location.pathname === path;
+              const isActive = path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
               return (
                 <button
                   key={path}

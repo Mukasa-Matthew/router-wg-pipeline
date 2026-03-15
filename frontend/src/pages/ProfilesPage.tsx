@@ -6,8 +6,11 @@ import {
   RefreshCw,
   Pencil,
   Trash2,
+  X,
 } from 'lucide-react';
 import { api, type HotspotProfile, type HotspotProfileInput } from '../lib/api';
+import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 function ProfileModal({
   open,
@@ -94,20 +97,38 @@ function ProfileModal({
     }
   }
 
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [open, loading, onClose]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-900/50 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-elevated border border-navy-200 max-h-[90vh] overflow-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-900/50 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl bg-white shadow-elevated border border-navy-200 max-h-[90vh] overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-6 border-b border-navy-200">
           <h2 className="text-lg font-bold text-navy-900">
             {profile ? 'Edit Profile' : 'Add Profile'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-navy-100 hover:bg-navy-200 transition"
+            className="p-2 rounded-lg bg-navy-100 border border-navy-300 text-navy-700 hover:bg-navy-200 transition"
+            aria-label="Close"
           >
-            ×
+            <X className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -128,7 +149,7 @@ function ProfileModal({
                 })
               }
               placeholder="1-Day-Internet"
-              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50"
+              className="input-base"
               required
               disabled={!!profile}
             />
@@ -144,7 +165,7 @@ function ProfileModal({
               value={form.display_name}
               onChange={(e) => update({ display_name: e.target.value })}
               placeholder="1 Day Internet"
-              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50"
+              className="input-base"
               required
             />
           </div>
@@ -156,7 +177,7 @@ function ProfileModal({
               value={form.validity}
               onChange={(e) => update({ validity: e.target.value })}
               placeholder="30m, 1h, 6h, 12h, 1d, 7d, 30d"
-              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50"
+              className="input-base"
               required
             />
           </div>
@@ -169,7 +190,7 @@ function ProfileModal({
               min={0}
               value={form.price}
               onChange={(e) => update({ price: parseInt(e.target.value, 10) || 0 })}
-              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50"
+              className="input-base"
               required
             />
           </div>
@@ -182,7 +203,7 @@ function ProfileModal({
               min={1}
               value={form.shared_users ?? 1}
               onChange={(e) => update({ shared_users: parseInt(e.target.value, 10) || 1 })}
-              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50"
+              className="input-base"
             />
           </div>
           <div>
@@ -193,7 +214,7 @@ function ProfileModal({
               value={form.rate_limit || ''}
               onChange={(e) => update({ rate_limit: e.target.value })}
               placeholder="5M/5M"
-              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50"
+              className="input-base"
             />
           </div>
           <div>
@@ -204,7 +225,7 @@ function ProfileModal({
               value={form.session_timeout || ''}
               onChange={(e) => update({ session_timeout: e.target.value })}
               placeholder="1d"
-              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50"
+              className="input-base"
             />
           </div>
           <div>
@@ -215,7 +236,7 @@ function ProfileModal({
               value={form.idle_timeout || ''}
               onChange={(e) => update({ idle_timeout: e.target.value })}
               placeholder="5m"
-              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50"
+              className="input-base"
             />
           </div>
           <div className="flex gap-3 pt-2">
@@ -241,6 +262,8 @@ function ProfileModal({
 }
 
 export function ProfilesPage() {
+  const toast = useToast();
+  const { confirm } = useConfirm();
   const { id } = useParams<{ id: string }>();
   const routerId = parseInt(id || '0', 10);
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
@@ -248,7 +271,6 @@ export function ProfilesPage() {
   const [syncing, setSyncing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<HotspotProfile | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
   async function load() {
     if (!routerId) return;
@@ -271,11 +293,9 @@ export function ProfilesPage() {
     try {
       const res = await api.routers.profiles.sync(routerId);
       setProfiles(res.profiles);
-      setToast(`Synced ${res.synced} new profiles from MikroTik`);
-      setTimeout(() => setToast(null), 3000);
+      toast.success(`Synced ${res.synced} new profiles from MikroTik`);
     } catch (err) {
-      setToast(err instanceof Error ? err.message : 'Sync failed');
-      setTimeout(() => setToast(null), 3000);
+      toast.error(err instanceof Error ? err.message : 'Sync failed');
     } finally {
       setSyncing(false);
     }
@@ -285,19 +305,23 @@ export function ProfilesPage() {
     try {
       const res = await api.routers.profiles.delete(routerId, p.id);
       if ('warning' in res && res.warning) {
-        if (
-          confirm(
-            `${res.message}\n\nDeleting will not affect existing vouchers but no new vouchers can be generated. Continue?`
-          )
-        ) {
+        const ok = await confirm({
+          title: 'Delete profile with vouchers?',
+          message: `${res.message}\n\nDeleting will not affect existing vouchers but no new vouchers can be generated.`,
+          confirmLabel: 'Delete anyway',
+          variant: 'warning',
+        });
+        if (ok) {
           await api.routers.profiles.delete(routerId, p.id, true);
+          toast.success('Profile deleted');
           load();
         }
       } else {
+        toast.success('Profile deleted');
         load();
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Delete failed');
+      toast.error(err instanceof Error ? err.message : 'Delete failed');
     }
   }
 
@@ -342,80 +366,76 @@ export function ProfilesPage() {
         </div>
       </div>
 
-      {toast && (
-        <div className="mb-4 p-4 rounded-xl bg-primary-50 border border-primary-200 text-primary-800">
-          {toast}
+      {profiles.length === 0 ? (
+        <div className="rounded-2xl border-2 border-dashed border-navy-200 bg-white p-16 text-center">
+          <p className="text-navy-600 font-medium">No profiles yet.</p>
+          <p className="text-sm text-navy-500 mt-1">Add one manually or sync from MikroTik.</p>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-navy-200 bg-white shadow-card overflow-x-auto">
+          <table className="w-full min-w-[600px]">
+            <thead>
+              <tr className="border-b border-navy-200 bg-navy-50/50">
+                <th className="text-left py-4 px-6 text-sm font-semibold text-navy-700">
+                  Profile Name
+                </th>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-navy-700">
+                  Validity
+                </th>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-navy-700">
+                  Price
+                </th>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-navy-700">
+                  Users
+                </th>
+                <th className="text-left py-4 px-6 text-sm font-semibold text-navy-700">
+                  Rate
+                </th>
+                <th className="text-right py-4 px-6 text-sm font-semibold text-navy-700">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {profiles.map((p) => (
+                <tr
+                  key={p.id}
+                  className="border-b border-navy-100 last:border-0 hover:bg-navy-50/50"
+                >
+                  <td className="py-4 px-6 font-medium text-navy-900">{p.display_name}</td>
+                  <td className="py-4 px-6 text-navy-600">{p.validity}</td>
+                  <td className="py-4 px-6 text-navy-600">
+                    UGX {Number(p.price).toLocaleString()}
+                  </td>
+                  <td className="py-4 px-6 text-navy-600">{p.shared_users}</td>
+                  <td className="py-4 px-6 text-navy-600">{p.rate_limit || '—'}</td>
+                  <td className="py-4 px-6 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingProfile(p);
+                          setModalOpen(true);
+                        }}
+                        className="p-2 rounded-lg bg-navy-100 hover:bg-navy-200 text-navy-700 transition"
+                        title="Edit"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p)}
+                        className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
-
-      <div className="rounded-2xl border border-navy-200 bg-white shadow-card overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-navy-200 bg-navy-50/50">
-              <th className="text-left py-4 px-6 text-sm font-semibold text-navy-700">
-                Profile Name
-              </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-navy-700">
-                Validity
-              </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-navy-700">
-                Price
-              </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-navy-700">
-                Users
-              </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-navy-700">
-                Rate
-              </th>
-              <th className="text-right py-4 px-6 text-sm font-semibold text-navy-700">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {profiles.map((p) => (
-              <tr
-                key={p.id}
-                className="border-b border-navy-100 last:border-0 hover:bg-navy-50/50"
-              >
-                <td className="py-4 px-6 font-medium text-navy-900">{p.display_name}</td>
-                <td className="py-4 px-6 text-navy-600">{p.validity}</td>
-                <td className="py-4 px-6 text-navy-600">
-                  UGX {Number(p.price).toLocaleString()}
-                </td>
-                <td className="py-4 px-6 text-navy-600">{p.shared_users}</td>
-                <td className="py-4 px-6 text-navy-600">{p.rate_limit || '—'}</td>
-                <td className="py-4 px-6 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingProfile(p);
-                        setModalOpen(true);
-                      }}
-                      className="p-2 rounded-lg bg-navy-100 hover:bg-navy-200 text-navy-700"
-                      title="Edit"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(p)}
-                      className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {profiles.length === 0 && (
-          <div className="py-16 text-center text-navy-500">
-            No profiles. Add one or sync from MikroTik.
-          </div>
-        )}
-      </div>
 
       <ProfileModal
         open={modalOpen}
