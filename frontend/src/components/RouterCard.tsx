@@ -105,7 +105,11 @@ export function RouterCard({
 
   return (
     <div
-      className="rounded-2xl border border-navy-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:border-primary-300/50 transition-all duration-200 group"
+      role="button"
+      tabIndex={0}
+      onClick={() => onManage(router.id)}
+      onKeyDown={(e) => e.key === 'Enter' && onManage(router.id)}
+      className="rounded-2xl border border-navy-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:border-primary-300/50 transition-all duration-200 group cursor-pointer"
       onMouseEnter={loadUsers}
     >
       <div className="flex items-start justify-between">
@@ -145,7 +149,7 @@ export function RouterCard({
             )}
           </div>
         </div>
-        <div className="relative">
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="p-2 rounded-lg bg-navy-100 border border-navy-300 text-navy-600 hover:bg-navy-200 transition"
@@ -205,7 +209,7 @@ export function RouterCard({
         </span>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className="mt-5 flex flex-wrap gap-3" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={() => onManage(router.id)}
           className="flex-1 min-w-[100px] py-2.5 px-4 rounded-xl btn-primary text-sm"

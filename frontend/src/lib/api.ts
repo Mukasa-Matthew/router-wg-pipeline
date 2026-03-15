@@ -170,13 +170,22 @@ export interface AddRouterData {
 }
 
 export interface RouterStats {
-  resources?: { 'cpu-load'?: number; 'total-memory'?: number; 'free-memory'?: number };
+  resources?: {
+    'cpu-load'?: number;
+    'total-memory'?: number;
+    'free-memory'?: number;
+    uptime?: string;
+  };
   identity?: { name?: string };
+  cached?: boolean;
 }
 
 export interface HotspotUser {
   user?: string;
   'uptime'?: string;
+  'mac-address'?: string;
+  'session-time-left'?: string;
+  [key: string]: unknown;
 }
 
 export interface Voucher {

@@ -3,6 +3,7 @@ import { ArrowLeft, Wifi, FileText, Link2, ExternalLink, Loader2 } from 'lucide-
 import { useState, useEffect } from 'react';
 import { api, type Router, type TunnelStatus } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
+import { VoucherModal } from './VoucherModal';
 
 const TABS = [
   { path: '', label: 'Overview', icon: Wifi },
@@ -20,6 +21,7 @@ export function RouterDetailLayout() {
   const [tunnelStatus, setTunnelStatus] = useState<TunnelStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [mikhmonLoading, setMikhmonLoading] = useState(false);
+  const [voucherOpen, setVoucherOpen] = useState(false);
 
   useEffect(() => {
     if (!routerId) return;
@@ -117,7 +119,8 @@ export function RouterDetailLayout() {
         )}
       </div>
 
-      <Outlet context={{ router, tunnelStatus }} />
+      <Outlet context={{ router, tunnelStatus, openVouchers: () => setVoucherOpen(true) }} />
+      <VoucherModal routerId={voucherOpen ? routerId : null} onClose={() => setVoucherOpen(false)} />
     </div>
   );
 }
