@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS routers (
     username VARCHAR(100) NOT NULL,
     password VARCHAR(255) NOT NULL,
     wg_ip VARCHAR(50),
+    webfig_port INT,
     wg_public_key TEXT,
     wg_private_key TEXT,
     client_name VARCHAR(100),

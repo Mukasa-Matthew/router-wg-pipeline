@@ -1,6 +1,7 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const db = require('../config/database');
 
 const isWindows = process.platform === 'win32';
@@ -20,6 +21,19 @@ function execCmd(cmd) {
       } else {
         resolve((stdout || '').trim());
       }
+    });
+  });
+}
+
+/**
+ * Execute command with sudo (for Apache, ufw, systemctl - Linux only)
+ */
+function execCmdSudo(cmd) {
+  return new Promise((resolve, reject) => {
+    const fullCmd = isLinux ? `sudo ${cmd}` : cmd;
+    exec(fullCmd, (error, stdout, stderr) => {
+      if (error) reject(error);
+      else resolve((stdout || '').trim());
     });
   });
 }
@@ -134,6 +148,73 @@ async function verifyTunnel(wgIp, maxAttempts = 10) {
 }
 
 /**
+ * Get next available WebFig port (8085, 8086, 8087, ...)
+ */
+async function getNextWebfigPort() {
+  const [rows] = await db.query(
+    'SELECT webfig_port FROM routers WHERE webfig_port IS NOT NULL ORDER BY webfig_port'
+  );
+  const usedPorts = (rows || []).map((r) => r.webfig_port).filter((p) => p != null);
+  let next = 8085;
+  while (usedPorts.includes(next)) next++;
+  return next;
+}
+
+/**
+ * Create Apache virtual host to proxy WebFig for a router
+ * WebFig runs on MikroTik port 8291 (Winbox) or 80/443 - typically 80 for web
+ * MikroTik WebFig uses port 80 or 8291. User spec says port 85.
+ */
+async function createWebfigProxy(wgIp, port) {
+  if (!isLinux) {
+    console.warn('WebFig proxy creation skipped (not Linux)');
+    return { port };
+  }
+  const config = `
+Listen ${port}
+<VirtualHost *:${port}>
+    ProxyPreserveHost Off
+    ProxyPass / http://${wgIp}:85/
+    ProxyPassReverse / http://${wgIp}:85/
+</VirtualHost>
+`;
+  const tmpPath = path.join(os.tmpdir(), `webfig-${port}.conf`);
+  const configPath = `/etc/apache2/sites-available/webfig-${port}.conf`;
+  fs.writeFileSync(tmpPath, config.trim());
+  await execCmdSudo(`cp ${tmpPath} ${configPath} && rm -f ${tmpPath}`);
+  await execCmdSudo(`a2ensite webfig-${port}`);
+  try {
+    await execCmdSudo(`ufw allow ${port}/tcp`);
+  } catch (e) {
+    console.warn('ufw allow failed (may need manual rule):', e.message);
+  }
+  await execCmdSudo('systemctl reload apache2');
+  return { port };
+}
+
+/**
+ * Remove WebFig Apache virtual host
+ */
+async function removeWebfigProxy(port) {
+  if (!isLinux || !port) return;
+  try {
+    await execCmdSudo(`a2dissite webfig-${port}`);
+  } catch (e) {
+    console.warn('a2dissite failed:', e.message);
+  }
+  try {
+    await execCmdSudo(`ufw delete allow ${port}/tcp`);
+  } catch (e) {
+    console.warn('ufw delete failed:', e.message);
+  }
+  const configPath = `/etc/apache2/sites-available/webfig-${port}.conf`;
+  if (fs.existsSync(configPath)) {
+    fs.unlinkSync(configPath);
+  }
+  await execCmdSudo('systemctl reload apache2');
+}
+
+/**
  * Remove peer from wg0.conf file
  */
 async function removePeerFromConfig(publicKey) {
@@ -158,4 +239,7 @@ module.exports = {
   removePeerFromConfig,
   getTunnelStatus,
   verifyTunnel,
+  getNextWebfigPort,
+  createWebfigProxy,
+  removeWebfigProxy,
 };

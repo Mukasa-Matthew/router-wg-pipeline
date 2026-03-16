@@ -145,7 +145,24 @@ export function RouterDetailPage() {
               </div>
             )}
           </dl>
+          {router.webfig_url && (
+            <div className="mt-2">
+              <dt className="text-navy-500">WebFig</dt>
+              <dd className="font-mono text-navy-900 text-xs">{router.webfig_url}</dd>
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
+            {router.webfig_url && (
+              <a
+                href={router.webfig_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs px-3 py-1.5 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 flex items-center gap-1.5"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Open WebFig ↗
+              </a>
+            )}
             <button
               onClick={openMikHmon}
               disabled={mikhmonLoading || !tunnelStatus?.tunnel_up}

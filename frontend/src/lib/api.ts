@@ -154,6 +154,8 @@ export interface Router {
   initial_ip?: string | null;
   api_port: number;
   wg_ip: string | null;
+  webfig_port?: number | null;
+  webfig_url?: string | null;
   status: 'online' | 'offline' | 'tunnel_failed';
   last_seen: string | null;
   created_at: string;
@@ -239,6 +241,7 @@ export interface ConnectCommands {
   tunnel_status: string;
   vps_ip?: string;
   wg_port?: string;
+  webfig_url?: string | null;
   commands: {
     step0?: string;
     step1: string;

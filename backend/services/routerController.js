@@ -105,12 +105,13 @@ async function updateRouterStatus(routerId, status) {
 
 /**
  * Check all routers status - uses WireGuard handshake (fast)
+ * When tunnel comes UP and router has no webfig_port, create WebFig proxy
  */
 async function checkAllRoutersStatus() {
   const tunnelStatuses = await wireguardService.getTunnelStatus();
   const now = Date.now();
 
-  const [routers] = await db.query('SELECT id, wg_ip FROM routers WHERE wg_ip IS NOT NULL');
+  const [routers] = await db.query('SELECT id, wg_ip, webfig_port FROM routers WHERE wg_ip IS NOT NULL');
 
   for (const r of routers) {
     const target = r.wg_ip + '/32';
@@ -126,19 +127,39 @@ async function checkAllRoutersStatus() {
       'UPDATE routers SET status = ?, last_seen = NOW() WHERE id = ?',
       [status, r.id]
     );
+
+    if (status === 'online' && !r.webfig_port) {
+      try {
+        const port = await wireguardService.getNextWebfigPort();
+        await wireguardService.createWebfigProxy(r.wg_ip, port);
+        await db.query('UPDATE routers SET webfig_port = ? WHERE id = ?', [port, r.id]);
+        console.log(`[Router ${r.id}] WebFig proxy created on port ${port}`);
+      } catch (err) {
+        console.warn(`[Router ${r.id}] WebFig proxy creation failed:`, err.message);
+      }
+    }
   }
 }
 
 /**
- * Delete router (cleanup MikHmon, WireGuard peer)
+ * Delete router (cleanup MikHmon, WireGuard peer, WebFig proxy)
  */
 async function deleteRouter(routerId) {
   console.log(`[Router ${routerId}] Deleting router and cleaning up`);
 
-  const [routerRows] = await db.query('SELECT name FROM routers WHERE id = ?', [routerId]);
+  const [routerRows] = await db.query('SELECT name, webfig_port FROM routers WHERE id = ?', [routerId]);
   if (routerRows.length > 0) {
     mikhmonService.removeMikHmonSession(routerId, routerRows[0].name);
     console.log(`[Router ${routerId}] MikHmon session removed`);
+
+    if (routerRows[0].webfig_port) {
+      try {
+        await wireguardService.removeWebfigProxy(routerRows[0].webfig_port);
+        console.log(`[Router ${routerId}] WebFig proxy removed (port ${routerRows[0].webfig_port})`);
+      } catch (err) {
+        console.warn(`[Router ${routerId}] WebFig proxy removal failed:`, err.message);
+      }
+    }
   }
 
   const [peers] = await db.query('SELECT public_key FROM wireguard_peers WHERE router_id = ?', [
