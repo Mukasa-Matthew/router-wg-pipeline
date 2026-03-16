@@ -155,11 +155,13 @@ async function createHotspotProfile(router, profileData) {
     const params = [
       `=name=${profileData.profile_name}`,
       `=shared-users=${profileData.shared_users || 1}`,
+      '=keepalive-timeout=none',
     ];
     if (profileData.session_timeout || profileData.validity) {
       params.push(
         `=session-timeout=${profileData.session_timeout || profileData.validity}`
       );
+      params.push('=add-mac-cookie=yes');
     }
     if (profileData.idle_timeout) {
       params.push(`=idle-timeout=${profileData.idle_timeout}`);
