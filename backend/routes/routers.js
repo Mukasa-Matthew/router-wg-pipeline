@@ -224,7 +224,13 @@ router.get('/:id/test-tunnel', async (req, res) => {
     if (!r.wg_ip) return res.status(400).json({ error: 'Router has no wg_ip' });
 
     const tunnelStatuses = await wireguardService.getTunnelStatus();
-    const peer = tunnelStatuses.find((p) => p.publicKey === r.wg_public_key);
+    const target = r.wg_ip + '/32';
+    let peer = tunnelStatuses.find((p) => p.publicKey === r.wg_public_key);
+    if (!peer) {
+      peer = tunnelStatuses.find(
+        (p) => p.allowedIps === target || (p.allowedIps && p.allowedIps.includes(r.wg_ip))
+      );
+    }
 
     let tunnel_up = false;
     let last_handshake = null;
