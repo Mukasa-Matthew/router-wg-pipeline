@@ -24,6 +24,90 @@ function normalizeValidityForMikrotik(v) {
 router.use(requireAuth);
 
 /**
+ * DELETE /api/vouchers/bulk - Delete multiple vouchers (must be before :voucherId)
+ */
+router.delete('/bulk', async (req, res) => {
+  try {
+    const { voucherIds, routerId } = req.body;
+    if (!Array.isArray(voucherIds) || voucherIds.length === 0 || !routerId) {
+      return res.status(400).json({ error: 'voucherIds array and routerId required' });
+    }
+
+    const [routerRows] = await db.query('SELECT * FROM routers WHERE id = ?', [routerId]);
+    if (routerRows.length === 0) return res.status(404).json({ error: 'Router not found' });
+    const router = routerRows[0];
+    if (!router.wg_ip) {
+      return res.status(400).json({ error: 'Router has no wg_ip. Tunnel must be up.' });
+    }
+
+    let deleted = 0;
+    let failed = 0;
+    for (const vid of voucherIds) {
+      try {
+        const [vRows] = await db.query('SELECT * FROM vouchers WHERE id = ? AND router_id = ?', [vid, routerId]);
+        if (vRows.length === 0) {
+          failed++;
+          continue;
+        }
+        const v = vRows[0];
+        try {
+          await mikrotikService.deleteHotspotUser(router, v.username);
+        } catch (mkErr) {
+          console.warn(`[Router ${routerId}] MikroTik delete failed for ${v.username}:`, mkErr.message);
+        }
+        await db.query('DELETE FROM vouchers WHERE id = ?', [vid]);
+        console.log(`[Router ${routerId}] Deleted voucher ${v.username}`);
+        deleted++;
+      } catch (err) {
+        console.warn(`[Router ${routerId}] Delete voucher ${vid} failed:`, err.message);
+        failed++;
+      }
+    }
+    res.json({ success: true, deleted, failed });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/vouchers/:voucherId - Delete single voucher
+ */
+router.delete('/:voucherId', async (req, res) => {
+  try {
+    const voucherId = parseInt(req.params.voucherId, 10);
+    const [vRows] = await db.query(
+      'SELECT v.*, r.wg_ip, r.lan_ip, r.username as router_username, r.password as router_password, r.api_port FROM vouchers v JOIN routers r ON r.id = v.router_id WHERE v.id = ?',
+      [voucherId]
+    );
+    if (vRows.length === 0) return res.status(404).json({ error: 'Voucher not found' });
+    const v = vRows[0];
+    const router = {
+      wg_ip: v.wg_ip,
+      lan_ip: v.lan_ip,
+      username: v.router_username,
+      password: v.router_password,
+      api_port: v.api_port || 8728,
+    };
+    if (!v.wg_ip) return res.status(400).json({ error: 'Router has no wg_ip. Tunnel must be up.' });
+
+    let mikrotikOk = false;
+    try {
+      await mikrotikService.deleteHotspotUser(router, v.username);
+      mikrotikOk = true;
+    } catch (mkErr) {
+      console.warn(`[Router ${v.router_id}] MikroTik delete failed for ${v.username}:`, mkErr.message);
+    }
+    await db.query('DELETE FROM vouchers WHERE id = ?', [voucherId]);
+    console.log(`[Router ${v.router_id}] Deleted voucher ${v.username}`);
+    res.json({ success: true, mikrotik_removed: mikrotikOk });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/vouchers/generate - Generate batch vouchers (must be before :routerId)
  */
 router.post('/generate', async (req, res) => {

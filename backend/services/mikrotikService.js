@@ -110,6 +110,24 @@ async function getActiveHotspotUsers(router) {
 }
 
 /**
+ * Delete hotspot user from MikroTik by username
+ */
+async function deleteHotspotUser(router, username) {
+  const conn = await connect(router);
+  try {
+    const users = await conn.write('/ip/hotspot/user/print', [`?name=${username}`]);
+    if (!users || users.length === 0) {
+      return { success: true, note: 'Not found on MikroTik' };
+    }
+    const mikrotikId = users[0]['.id'];
+    await conn.write('/ip/hotspot/user/remove', [`=.id=${mikrotikId}`]);
+    return { success: true };
+  } finally {
+    conn.close();
+  }
+}
+
+/**
  * Reboot router
  */
 async function rebootRouter(router) {
@@ -318,6 +336,7 @@ module.exports = {
   createHotspotProfile,
   updateHotspotProfile,
   deleteHotspotProfile,
+  deleteHotspotUser,
   fixProfileOnMikrotik,
   validityToUptime,
 };

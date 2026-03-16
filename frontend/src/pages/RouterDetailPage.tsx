@@ -18,13 +18,13 @@ import {
 import { api, type Router, type TunnelStatus, type HotspotProfile, type HotspotUser, type RouterStats } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
 
-type OutletContext = { router: Router; tunnelStatus: TunnelStatus | null; openVouchers?: () => void };
+type OutletContext = { router: Router; tunnelStatus: TunnelStatus | null; openVouchers?: () => void; refreshVouchers?: number };
 
 export function RouterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
-  const { router, tunnelStatus, openVouchers } = useOutletContext<OutletContext>();
+  const { router, tunnelStatus, openVouchers, refreshVouchers } = useOutletContext<OutletContext>();
   const routerId = parseInt(id || '0', 10);
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
   const [users, setUsers] = useState<HotspotUser[] | null>(null);
@@ -59,7 +59,7 @@ export function RouterDetailPage() {
         setLoadingUsers(false);
         setLoadingStats(false);
       });
-  }, [routerId, isOnline]);
+  }, [routerId, isOnline, refreshVouchers]);
 
   async function openMikHmon() {
     if (!tunnelStatus?.tunnel_up) {

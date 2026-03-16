@@ -121,6 +121,15 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    delete: (voucherId: number) =>
+      request<{ success: boolean; mikrotik_removed?: boolean }>(`/vouchers/${voucherId}`, {
+        method: 'DELETE',
+      }),
+    deleteBulk: (voucherIds: number[], routerId: number) =>
+      request<{ success: boolean; deleted: number; failed: number }>('/vouchers/bulk', {
+        method: 'DELETE',
+        body: JSON.stringify({ voucherIds, routerId }),
+      }),
     exportUrl: (routerId: number) =>
       `${API_BASE}/vouchers/export/${routerId}`,
     exportNewUrl: (routerId: number) =>

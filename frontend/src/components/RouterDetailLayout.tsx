@@ -22,6 +22,7 @@ export function RouterDetailLayout() {
   const [loading, setLoading] = useState(true);
   const [mikhmonLoading, setMikhmonLoading] = useState(false);
   const [voucherOpen, setVoucherOpen] = useState(false);
+  const [voucherRefreshTrigger, setVoucherRefreshTrigger] = useState(0);
 
   useEffect(() => {
     if (!routerId) return;
@@ -119,8 +120,12 @@ export function RouterDetailLayout() {
         )}
       </div>
 
-      <Outlet context={{ router, tunnelStatus, openVouchers: () => setVoucherOpen(true) }} />
-      <VoucherModal routerId={voucherOpen ? routerId : null} onClose={() => setVoucherOpen(false)} />
+      <Outlet context={{ router, tunnelStatus, openVouchers: () => setVoucherOpen(true), refreshVouchers: voucherRefreshTrigger }} />
+      <VoucherModal
+        routerId={voucherOpen ? routerId : null}
+        onClose={() => setVoucherOpen(false)}
+        onVouchersChange={() => setVoucherRefreshTrigger((t) => t + 1)}
+      />
     </div>
   );
 }
