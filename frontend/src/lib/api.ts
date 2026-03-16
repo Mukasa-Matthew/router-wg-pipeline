@@ -106,8 +106,10 @@ export const api = {
     },
   },
   vouchers: {
-    list: (routerId: number) =>
-      request<Voucher[]>(`/vouchers/${routerId}`),
+    list: (routerId: number, filters?: { profile?: string; status?: string; search?: string }) =>
+      request<{ vouchers: Voucher[]; total: number }>(
+        `/vouchers/${routerId}${filters && Object.keys(filters).length > 0 ? '?' + new URLSearchParams(filters as Record<string, string>).toString() : ''}`
+      ),
     pendingCount: (routerId: number) =>
       request<{ count: number }>(`/vouchers/pending/${routerId}`),
     generate: (data: {

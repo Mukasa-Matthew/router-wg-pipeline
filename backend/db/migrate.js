@@ -13,6 +13,34 @@ async function migrate() {
     database: process.env.DB_NAME || 'routerhub',
   });
 
+  async function addIndexes(connection) {
+    const indexes = [
+      'CREATE INDEX idx_vouchers_router_id ON vouchers(router_id)',
+      'CREATE INDEX idx_vouchers_exported ON vouchers(router_id, exported)',
+      'CREATE INDEX idx_vouchers_profile ON vouchers(router_id, profile)',
+      'CREATE INDEX idx_vouchers_username ON vouchers(username)',
+      'CREATE INDEX idx_routers_status ON routers(status)',
+      'CREATE INDEX idx_routers_wg_ip ON routers(wg_ip)',
+      'CREATE INDEX idx_revenue_router_date ON revenue(router_id, date)',
+      'CREATE INDEX idx_revenue_router_created ON revenue(router_id, created_at)',
+      'CREATE INDEX idx_profiles_router_id ON hotspot_profiles(router_id)',
+      'CREATE INDEX idx_profiles_active ON hotspot_profiles(router_id, is_active)',
+      'CREATE INDEX idx_wg_peers_router_id ON wireguard_peers(router_id)',
+    ];
+    for (const sql of indexes) {
+      try {
+        await connection.query(sql);
+        console.log('OK:', sql.substring(0, 55) + '...');
+      } catch (e) {
+        if (e.code === 'ER_DUP_KEYNAME' || e.code === 'ER_DUP_INDEX') {
+          console.log('Skip (exists):', sql.substring(0, 45) + '...');
+        } else {
+          console.warn('Index:', e.message);
+        }
+      }
+    }
+  }
+
   const run = async (sql, ignoreError) => {
     try {
       await conn.query(sql);
@@ -98,6 +126,8 @@ async function migrate() {
     } catch (e) {
       console.log('Skip: Conference WiFi winbox port update (id=1 may not exist)');
     }
+
+    await addIndexes(conn);
     console.log('Migration complete.');
   } finally {
     await conn.end();

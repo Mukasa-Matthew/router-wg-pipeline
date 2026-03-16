@@ -251,15 +251,43 @@ router.get('/pending/:routerId', async (req, res) => {
 });
 
 /**
- * GET /api/vouchers/:routerId - List vouchers per router
+ * GET /api/vouchers/:routerId - List vouchers per router (with filters)
+ * Query params: profile, status (exported|not-exported|used), search
  */
 router.get('/:routerId', async (req, res) => {
   try {
-    const [rows] = await db.query(
-      'SELECT * FROM vouchers WHERE router_id = ? ORDER BY id DESC',
-      [req.params.routerId]
+    const routerId = req.params.routerId;
+    const { profile, status, search } = req.query;
+
+    let query = 'SELECT * FROM vouchers WHERE router_id = ?';
+    const params = [routerId];
+
+    if (profile) {
+      query += ' AND profile = ?';
+      params.push(profile);
+    }
+    if (status === 'exported') {
+      query += ' AND exported = 1';
+    } else if (status === 'not-exported') {
+      query += ' AND exported = 0';
+    } else if (status === 'used') {
+      query += ' AND used = 1';
+    }
+    if (search && typeof search === 'string' && search.trim()) {
+      query += ' AND username LIKE ?';
+      params.push('%' + search.trim() + '%');
+    }
+
+    const [countRows] = await db.query(
+      'SELECT COUNT(*) as total FROM vouchers WHERE router_id = ?',
+      [routerId]
     );
-    res.json(rows);
+    const total = countRows[0]?.total ?? 0;
+
+    query += ' ORDER BY created_at DESC LIMIT 500';
+    const [rows] = await db.query(query, params);
+
+    res.json({ vouchers: rows, total });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch vouchers' });
   }

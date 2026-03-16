@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Loader2,
@@ -8,6 +8,7 @@ import {
   Check,
   Plus,
   Trash2,
+  Search,
 } from 'lucide-react';
 import { api, type Voucher, type Router, type HotspotProfile, type HotspotUser } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
@@ -23,7 +24,8 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
   const toast = useToast();
   const { confirm } = useConfirm();
   const [router, setRouter] = useState<Router | null>(null);
-  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [allVouchers, setAllVouchers] = useState<Voucher[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [pendingExport, setPendingExport] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [genLoading, setGenLoading] = useState(false);
@@ -36,6 +38,12 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [activeUsers, setActiveUsers] = useState<HotspotUser[]>([]);
+
+  const [profileFilter, setProfileFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
+
+  const hasActiveFilters = profileFilter || statusFilter || searchFilter.trim();
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -50,15 +58,21 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
     (async () => {
       setLoading(true);
       try {
-        const [r, v, pending, profs, users] = await Promise.all([
+        const filters: Record<string, string> = {};
+        if (profileFilter) filters.profile = profileFilter;
+        if (statusFilter && statusFilter !== 'used') filters.status = statusFilter;
+        if (searchFilter.trim()) filters.search = searchFilter.trim();
+
+        const [r, vRes, pending, profs, users] = await Promise.all([
           api.routers.get(routerId),
-          api.vouchers.list(routerId),
+          api.vouchers.list(routerId, Object.keys(filters).length > 0 ? filters : undefined),
           api.vouchers.pendingCount(routerId),
           api.routers.profiles.list(routerId),
           api.routers.users(routerId).catch(() => []),
         ]);
         setRouter(r);
-        setVouchers(v);
+        setAllVouchers(vRes.vouchers);
+        setTotalCount(vRes.total);
         setPendingExport(pending.count);
         setProfiles(profs);
         setProfile(profs[0]?.profile_name || '');
@@ -69,9 +83,30 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
         setLoading(false);
       }
     })();
-  }, [routerId]);
+  }, [routerId, profileFilter, statusFilter, searchFilter]);
 
-  const activeByUsername = new Map(activeUsers.map((u) => [u.user, u]));
+  const activeByUsername = useMemo(
+    () => new Map(activeUsers.map((u) => [u.user, u])),
+    [activeUsers]
+  );
+
+  const filteredVouchers = useMemo(() => {
+    let list = allVouchers;
+    if (statusFilter === 'used') {
+      list = list.filter((v) => activeByUsername.has(v.username));
+    }
+    return list;
+  }, [allVouchers, statusFilter, activeByUsername]);
+
+  function getRowStyle(v: Voucher): string {
+    const inUse = activeByUsername.has(v.username);
+    const exported = v.exported === 1;
+    const used = v.used === 1;
+    if (inUse) return 'bg-green-50 border-green-200';
+    if (exported) return 'bg-amber-50 border-amber-200';
+    if (used) return 'bg-navy-100/50 border-navy-200';
+    return 'bg-white border-navy-200';
+  }
 
   function getVoucherWarnings(v: Voucher): { exported?: boolean; inUse?: string } {
     const inUse = activeByUsername.get(v.username);
@@ -101,7 +136,8 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
     setDeletingId(v.id);
     try {
       const res = await api.vouchers.delete(v.id);
-      setVouchers((p) => p.filter((x) => x.id !== v.id));
+      setAllVouchers((p) => p.filter((x) => x.id !== v.id));
+      setTotalCount((t) => Math.max(0, t - 1));
       setPendingExport((prev) => (prev != null && prev > 0 && !v.exported ? prev - 1 : prev));
       onVouchersChange?.();
       if (!res.mikrotik_removed) {
@@ -118,7 +154,7 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
 
   async function handleBulkDelete() {
     if (!routerId || selectedIds.size === 0) return;
-    const toDelete = vouchers.filter((v) => selectedIds.has(v.id));
+    const toDelete = allVouchers.filter((v) => selectedIds.has(v.id));
     const hasExported = toDelete.some((v) => v.exported === 1);
     const hasInUse = toDelete.some((v) => activeByUsername.has(v.username));
     let message = `Delete ${toDelete.length} vouchers? This will remove them from MikroTik too.`;
@@ -138,7 +174,8 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
     setBulkDeleting(true);
     try {
       const res = await api.vouchers.deleteBulk([...selectedIds], routerId);
-      setVouchers((p) => p.filter((x) => !selectedIds.has(x.id)));
+      setAllVouchers((p) => p.filter((x) => !selectedIds.has(x.id)));
+      setTotalCount((t) => Math.max(0, t - res.deleted));
       const deletedUnexported = toDelete.filter((v) => !v.exported).length;
       setPendingExport((prev) => (prev != null ? Math.max(0, prev - deletedUnexported) : prev));
       setSelectedIds(new Set());
@@ -161,11 +198,17 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
   }
 
   function toggleSelectAll() {
-    if (selectedIds.size === vouchers.length) {
+    if (selectedIds.size === filteredVouchers.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(vouchers.map((v) => v.id)));
+      setSelectedIds(new Set(filteredVouchers.map((v) => v.id)));
     }
+  }
+
+  function clearFilters() {
+    setProfileFilter('');
+    setStatusFilter('');
+    setSearchFilter('');
   }
 
   async function handleGenerate() {
@@ -178,7 +221,8 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
         count,
         prefix,
       });
-      setVouchers((p) => [...res.vouchers, ...p]);
+      setAllVouchers((p) => [...res.vouchers, ...p]);
+      setTotalCount((t) => t + res.vouchers.length);
       setPendingExport((prev) => (prev ?? 0) + res.vouchers.length);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Generate failed');
@@ -301,10 +345,59 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
             </a>
           </div>
 
+          {/* Filter bar */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <select
+              value={profileFilter}
+              onChange={(e) => setProfileFilter(e.target.value)}
+              className="input-base py-2 min-w-[140px]"
+            >
+              <option value="">All Profiles</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.profile_name}>
+                  {p.display_name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="input-base py-2 min-w-[140px]"
+            >
+              <option value="">All Status</option>
+              <option value="not-exported">Not Exported</option>
+              <option value="exported">Exported</option>
+              <option value="used">Used</option>
+            </select>
+            <div className="relative flex-1 min-w-[160px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-navy-400" />
+              <input
+                type="text"
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                placeholder="Search by username..."
+                className="input-base py-2 pl-9 w-full"
+              />
+            </div>
+            <span className="text-sm text-navy-600 shrink-0">
+              Showing {filteredVouchers.length} of {totalCount} vouchers
+            </span>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="text-sm font-medium text-primary-600 hover:text-primary-700"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+
           {selectedIds.size > 0 && (
             <div className="flex items-center justify-between p-3 rounded-xl bg-primary-50 border border-primary-200">
               <span className="text-sm font-medium text-primary-800">
-                {selectedIds.size} voucher(s) selected
+                {hasActiveFilters
+                  ? `${selectedIds.size} of ${filteredVouchers.length} filtered vouchers selected`
+                  : `${selectedIds.size} voucher(s) selected`}
               </span>
               <div className="flex gap-2">
                 <button
@@ -313,6 +406,14 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
                 >
                   Cancel
                 </button>
+                {hasActiveFilters && (
+                  <button
+                    onClick={toggleSelectAll}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium text-primary-600 hover:bg-primary-100"
+                  >
+                    Select All Visible
+                  </button>
+                )}
                 <button
                   onClick={handleBulkDelete}
                   disabled={bulkDeleting}
@@ -335,12 +436,12 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
             </div>
           ) : (
             <div className="space-y-2 max-h-64 overflow-auto">
-              {vouchers.length > 0 && (
+              {filteredVouchers.length > 0 && (
                 <div className="flex items-center gap-3 py-2 border-b border-navy-200">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={selectedIds.size === vouchers.length}
+                      checked={selectedIds.size === filteredVouchers.length && filteredVouchers.length > 0}
                       onChange={toggleSelectAll}
                       className="rounded border-navy-300"
                     />
@@ -348,10 +449,10 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
                   </label>
                 </div>
               )}
-              {vouchers.map((v) => (
+              {filteredVouchers.map((v) => (
                 <div
                   key={v.id}
-                  className="flex items-center gap-3 p-4 rounded-xl bg-navy-50/80 border border-navy-200"
+                  className={`flex items-center gap-3 p-4 rounded-xl border ${getRowStyle(v)}`}
                 >
                   <label className="shrink-0 cursor-pointer">
                     <input
@@ -368,7 +469,9 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
                   </div>
                   <span className="text-xs text-navy-500 shrink-0">{v.profile || v.uptime_limit || '—'}</span>
                   <span className="text-xs shrink-0">
-                    {v.exported ? (
+                    {activeByUsername.has(v.username) ? (
+                      <span className="text-green-600 font-medium">In use</span>
+                    ) : v.exported ? (
                       <span className="text-amber-600">Exported</span>
                     ) : (
                       <span className="text-navy-500">Not exported</span>
@@ -398,9 +501,11 @@ export function VoucherModal({ routerId, onClose, onVouchersChange }: VoucherMod
                   </button>
                 </div>
               ))}
-              {vouchers.length === 0 && (
+              {filteredVouchers.length === 0 && (
                 <p className="text-center text-navy-500 py-8">
-                  No vouchers yet. Generate some above.
+                  {allVouchers.length === 0
+                    ? 'No vouchers yet. Generate some above.'
+                    : 'No vouchers match your filters.'}
                 </p>
               )}
             </div>
