@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
-const mysql = require('mysql2');
 const cors = require('cors');
 const path = require('path');
 
@@ -21,21 +20,28 @@ const PORT = process.env.PORT || 3000;
 // Trust proxy (Apache reverse proxy)
 app.set('trust proxy', 1);
 
-// MySQL session store (persists across restarts; creates sessions table automatically)
-const sessionPool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'routerhub',
-  password: process.env.DB_PASS || '',
-  database: process.env.DB_NAME || 'routerhub',
-});
-const sessionStore = new MySQLStore({}, sessionPool);
+// MySQL session store (persists across restarts); fallback to MemoryStore if MySQL fails
+let sessionStore;
+try {
+  const storeOptions = {
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'routerhub',
+    password: process.env.DB_PASS || '',
+    database: process.env.DB_NAME || 'routerhub',
+  };
+  sessionStore = new MySQLStore(storeOptions);
+  console.log('Using MySQL session store');
+} catch (err) {
+  console.warn('MySQL session store failed, using memory:', err.message);
+  sessionStore = undefined;
+}
 
 // Session config (secure: false when using HTTP; set USE_HTTPS=1 when behind HTTPS)
 // Don't set cookie domain - let browser use request host (ProxyPreserveHost ensures correct Host)
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'routerhub-secret-change-in-production',
-    store: sessionStore,
+    store: sessionStore || undefined,
     resave: false,
     saveUninitialized: false,
     proxy: true,
