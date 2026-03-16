@@ -387,12 +387,17 @@ router.get('/:id/users', async (req, res) => {
 
 /**
  * POST /api/routers/:id/reboot - Reboot router
- * Fire-and-forget: router disconnects on reboot, so we return success immediately
+ * Fire-and-forget: router disconnects on reboot, so we return success immediately.
+ * Immediately set status to offline so dashboard shows it; status check will set online when it comes back.
  */
 router.post('/:id/reboot', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM routers WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Router not found' });
+    await db.query(
+      "UPDATE routers SET status = 'offline', last_seen = NOW() WHERE id = ?",
+      [req.params.id]
+    );
     res.json({ success: true });
     mikrotikService.rebootRouter(rows[0]).catch((err) =>
       console.warn('[Reboot] Router may have rebooted:', err.message)
