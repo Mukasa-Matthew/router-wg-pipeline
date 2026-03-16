@@ -32,6 +32,7 @@ app.use(
       maxAge: 24 * 60 * 60 * 1000,
       sameSite: 'lax',
       httpOnly: true,
+      // Don't set domain - let browser use request host (important for Vite proxy & Apache)
     },
   })
 );

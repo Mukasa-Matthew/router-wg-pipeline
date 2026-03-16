@@ -26,11 +26,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const checkAuth = useCallback(async () => {
+  const checkAuth = useCallback(async (retryCount = 0) => {
+    const maxRetries = 2;
     try {
       const res = await api.auth.me();
       setAdmin(res.loggedIn && res.admin ? res.admin : null);
     } catch {
+      // Retry on transient network/backend errors (don't assume logged out)
+      if (retryCount < maxRetries) {
+        await new Promise((r) => setTimeout(r, 500));
+        return checkAuth(retryCount + 1);
+      }
       setAdmin(null);
     } finally {
       setLoading(false);

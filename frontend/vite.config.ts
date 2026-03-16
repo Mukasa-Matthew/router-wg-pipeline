@@ -10,7 +10,7 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
-        changeOrigin: true,
+        changeOrigin: false, // Keep original Host so session cookie is set for localhost:5173
         secure: false,
         ws: true,
       },
