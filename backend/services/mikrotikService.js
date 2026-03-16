@@ -275,13 +275,7 @@ async function deleteHotspotProfile(router, profileName) {
 
 /**
  * Generate vouchers on MikroTik (hotspot users)
- * Uses a batch script (1 API call) instead of N sequential calls - much faster over high-latency links.
  * ALWAYS sets limit-uptime on each voucher - profiles have session-timeout=0s.
- * @param {Object} router - Router record
- * @param {string} profileName - Profile name
- * @param {number} count - Number of vouchers
- * @param {string} prefix - Username prefix
- * @param {string} validity - Profile validity e.g. "1d", "6h", "1w" - MUST be set
  */
 async function generateVouchersOnMikrotik(router, profileName, count, prefix = 'v', validity) {
   const limitUptime = validityToUptime(validity);
@@ -289,47 +283,25 @@ async function generateVouchersOnMikrotik(router, profileName, count, prefix = '
     throw new Error(`Invalid validity "${validity}" - must be e.g. 1d, 6h, 1w, 30d`);
   }
 
-  const vouchers = [];
-  for (let i = 0; i < count; i++) {
-    const username = `${prefix}${generateRandom(6)}`;
-    vouchers.push({ username, password: username, profile: profileName });
-  }
-
-  const scriptLines = vouchers.map(
-    (v) =>
-      `/ip hotspot user add name="${v.username}" password="${v.password}" profile="${profileName}" comment="${profileName} Voucher" limit-uptime=${limitUptime}`
-  );
-  const scriptSource = scriptLines.join('\n');
-  const scriptName = `rh-voucher-${Date.now()}`;
-
   const conn = await connect(router);
-  let scriptId = null;
+  const vouchers = [];
   try {
-    await conn.write('/system/script/add', [`=name=${scriptName}`, `=source=${scriptSource}`]);
-    const [scripts] = await conn.write('/system/script/print', [`?name=${scriptName}`]);
-    scriptId = scripts?.[0]?.['.id'];
-    if (!scriptId) throw new Error('Failed to get script id');
-    await conn.write('/system/script/run', [`=.id=${scriptId}`]);
-  } catch (err) {
-    if (scriptId) {
-      try {
-        await conn.write('/system/script/remove', [`=.id=${scriptId}`]);
-      } catch {}
+    for (let i = 0; i < count; i++) {
+      const username = `${prefix}${generateRandom(6)}`;
+      const params = [
+        `=name=${username}`,
+        `=password=${username}`,
+        `=profile=${profileName}`,
+        `=comment=${profileName} Voucher`,
+        `=limit-uptime=${limitUptime}`,
+      ];
+      await conn.write('/ip/hotspot/user/add', params);
+      vouchers.push({ username, password: username, profile: profileName });
     }
-    throw err;
+    return vouchers;
   } finally {
-    try {
-      if (scriptId) {
-        await conn.write('/system/script/remove', [`=.id=${scriptId}`]);
-      } else {
-        const [s] = await conn.write('/system/script/print', [`?name=${scriptName}`]);
-        if (s?.['.id']) await conn.write('/system/script/remove', [`=.id=${s['.id']}`]);
-      }
-    } catch {}
     conn.close();
   }
-
-  return vouchers;
 }
 
 /**

@@ -138,6 +138,11 @@ router.post('/generate', async (req, res) => {
     const profilePrice = hp ? parseFloat(hp.price) || 0 : 0;
 
     const countNum = parseInt(count, 10);
+    if (!normalizedValidity || !mikrotikService.validityToUptime(normalizedValidity)) {
+      return res.status(400).json({
+        error: `Invalid validity "${validity}". Use format like 1d, 6h, 24h, 7d, or 30d`,
+      });
+    }
     console.log(`[Router ${routerId}] Generating ${countNum} vouchers (limit-uptime=${uptimeLimitForDb})`);
     const mikrotikVouchers = await mikrotikService.generateVouchersOnMikrotik(
       router,
