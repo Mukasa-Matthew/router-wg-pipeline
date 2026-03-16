@@ -37,6 +37,7 @@ async function connect(router) {
     user: router.username,
     password: router.password,
     port: router.api_port || 8728,
+    timeout: Math.ceil(MIKROTIK_TIMEOUT_MS / 1000),
   });
   await withTimeout(conn.connect());
   return conn;
