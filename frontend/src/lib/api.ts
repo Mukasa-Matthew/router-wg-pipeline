@@ -1,5 +1,10 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(handler: () => void) {
+  onUnauthorized = handler;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -13,6 +18,9 @@ async function request<T>(
     },
   });
   if (!res.ok) {
+    if (res.status === 401 && onUnauthorized) {
+      onUnauthorized();
+    }
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const msg = err?.error || res.statusText || 'Request failed';
     if (res.status === 404 && msg.includes('fetch')) {

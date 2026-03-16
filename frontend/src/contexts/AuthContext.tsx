@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { api } from '../lib/api';
+import { api, setUnauthorizedHandler } from '../lib/api';
 
 interface Admin {
   id: number;
@@ -46,6 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => setAdmin(null));
+  }, []);
 
   const login = useCallback(
     async (identifier: string, password: string) => {
