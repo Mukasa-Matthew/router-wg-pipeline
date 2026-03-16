@@ -189,17 +189,29 @@ export function ConnectRouterPage() {
           )}
         </span>
       </div>
-      {commands.webfig_url && (
-        <div className="mb-6 flex items-center gap-2">
-          <span className="text-sm font-medium text-navy-700">WebFig Access:</span>
-          <a
-            href={commands.webfig_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 rounded-xl bg-primary-50 text-primary-700 font-mono text-sm hover:bg-primary-100"
-          >
-            {commands.webfig_url} ↗
-          </a>
+      {(commands.winbox_url || commands.webfig_url) && (
+        <div className="mb-6 flex flex-wrap gap-4">
+          {commands.winbox_url && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-navy-700">Winbox:</span>
+              <span className="px-4 py-2 rounded-xl bg-navy-100 text-navy-800 font-mono text-sm">
+                {commands.winbox_url}
+              </span>
+            </div>
+          )}
+          {commands.webfig_url && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-navy-700">WebFig:</span>
+              <a
+                href={commands.webfig_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 rounded-xl bg-primary-50 text-primary-700 font-mono text-sm hover:bg-primary-100"
+              >
+                {commands.webfig_url} ↗
+              </a>
+            </div>
+          )}
         </div>
       )}
 

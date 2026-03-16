@@ -193,6 +193,55 @@ Listen ${port}
 }
 
 /**
+ * Create Nginx stream proxy for Winbox (port 8291 on MikroTik)
+ * VPS listens on 8290+routerId, proxies to wgIp:8291
+ */
+async function createWinboxProxy(wgIp, routerIndex) {
+  if (!isLinux) {
+    console.warn('Winbox proxy creation skipped (not Linux)');
+    return { winbox_port: 8290 + routerIndex };
+  }
+  const port = 8290 + routerIndex;
+  const config = `server {
+    listen ${port};
+    proxy_pass ${wgIp}:8291;
+    proxy_connect_timeout 10s;
+    proxy_timeout 300s;
+}
+`;
+  const tmpPath = path.join(os.tmpdir(), `winbox-router${routerIndex}.conf`);
+  const configPath = `/etc/nginx/stream.d/winbox-router${routerIndex}.conf`;
+  fs.writeFileSync(tmpPath, config.trim());
+  await execCmdSudo(`mkdir -p /etc/nginx/stream.d && cp ${tmpPath} ${configPath} && rm -f ${tmpPath}`);
+  try {
+    await execCmdSudo(`ufw allow ${port}/tcp`);
+  } catch (e) {
+    console.warn('ufw allow failed (may need manual rule):', e.message);
+  }
+  await execCmdSudo('systemctl reload nginx');
+  return { winbox_port: port };
+}
+
+/**
+ * Remove Nginx Winbox stream proxy
+ */
+async function removeWinboxProxy(routerIndex) {
+  if (!isLinux || !routerIndex) return;
+  const port = 8290 + routerIndex;
+  try {
+    await execCmdSudo(`rm -f /etc/nginx/stream.d/winbox-router${routerIndex}.conf`);
+    await execCmdSudo(`ufw delete allow ${port}/tcp`);
+  } catch (e) {
+    console.warn('removeWinboxProxy:', e.message);
+  }
+  try {
+    await execCmdSudo('systemctl reload nginx');
+  } catch (e) {
+    console.warn('nginx reload failed:', e.message);
+  }
+}
+
+/**
  * Remove WebFig Apache virtual host
  */
 async function removeWebfigProxy(port) {
@@ -242,4 +291,6 @@ module.exports = {
   getNextWebfigPort,
   createWebfigProxy,
   removeWebfigProxy,
+  createWinboxProxy,
+  removeWinboxProxy,
 };

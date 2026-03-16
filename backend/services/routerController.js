@@ -111,7 +111,7 @@ async function checkAllRoutersStatus() {
   const tunnelStatuses = await wireguardService.getTunnelStatus();
   const now = Date.now();
 
-  const [routers] = await db.query('SELECT id, wg_ip, webfig_port FROM routers WHERE wg_ip IS NOT NULL');
+  const [routers] = await db.query('SELECT id, wg_ip, webfig_port, winbox_port FROM routers WHERE wg_ip IS NOT NULL');
 
   for (const r of routers) {
     const target = r.wg_ip + '/32';
@@ -138,6 +138,16 @@ async function checkAllRoutersStatus() {
         console.warn(`[Router ${r.id}] WebFig proxy creation failed:`, err.message);
       }
     }
+
+    if (status === 'online' && !r.winbox_port) {
+      try {
+        const { winbox_port } = await wireguardService.createWinboxProxy(r.wg_ip, r.id);
+        await db.query('UPDATE routers SET winbox_port = ? WHERE id = ?', [winbox_port, r.id]);
+        console.log(`[Router ${r.id}] Winbox proxy created on port ${winbox_port}`);
+      } catch (err) {
+        console.warn(`[Router ${r.id}] Winbox proxy creation failed:`, err.message);
+      }
+    }
   }
 }
 
@@ -147,7 +157,7 @@ async function checkAllRoutersStatus() {
 async function deleteRouter(routerId) {
   console.log(`[Router ${routerId}] Deleting router and cleaning up`);
 
-  const [routerRows] = await db.query('SELECT name, webfig_port FROM routers WHERE id = ?', [routerId]);
+  const [routerRows] = await db.query('SELECT name, webfig_port, winbox_port FROM routers WHERE id = ?', [routerId]);
   if (routerRows.length > 0) {
     mikhmonService.removeMikHmonSession(routerId, routerRows[0].name);
     console.log(`[Router ${routerId}] MikHmon session removed`);
@@ -158,6 +168,14 @@ async function deleteRouter(routerId) {
         console.log(`[Router ${routerId}] WebFig proxy removed (port ${routerRows[0].webfig_port})`);
       } catch (err) {
         console.warn(`[Router ${routerId}] WebFig proxy removal failed:`, err.message);
+      }
+    }
+    if (routerRows[0].winbox_port) {
+      try {
+        await wireguardService.removeWinboxProxy(routerId);
+        console.log(`[Router ${routerId}] Winbox proxy removed`);
+      } catch (err) {
+        console.warn(`[Router ${routerId}] Winbox proxy removal failed:`, err.message);
       }
     }
   }

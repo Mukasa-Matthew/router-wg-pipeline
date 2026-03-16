@@ -145,13 +145,31 @@ export function RouterDetailPage() {
               </div>
             )}
           </dl>
-          {router.webfig_url && (
-            <div className="mt-2">
-              <dt className="text-navy-500">WebFig</dt>
-              <dd className="font-mono text-navy-900 text-xs">{router.webfig_url}</dd>
+          {(router.winbox_url || router.webfig_url) && (
+            <div className="mt-2 space-y-1">
+              {router.winbox_url && (
+                <div>
+                  <dt className="text-navy-500">Winbox</dt>
+                  <dd className="font-mono text-navy-900 text-xs">{router.winbox_url}</dd>
+                </div>
+              )}
+              {router.webfig_url && (
+                <div>
+                  <dt className="text-navy-500">WebFig</dt>
+                  <dd className="font-mono text-navy-900 text-xs">{router.webfig_url}</dd>
+                </div>
+              )}
             </div>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
+            {router.winbox_url && (
+              <span
+                className="text-xs px-3 py-1.5 rounded-lg bg-navy-100 text-navy-700 font-mono"
+                title="Use this in Winbox: Connect To"
+              >
+                Winbox: {router.winbox_url}
+              </span>
+            )}
             {router.webfig_url && (
               <a
                 href={router.webfig_url}

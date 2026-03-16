@@ -110,7 +110,7 @@ router.get('/', async (req, res) => {
       return res.json(rows);
     }
     const [rows] = await db.query(
-      'SELECT id, name, location, lan_ip, initial_ip, api_port, wg_ip, webfig_port, status, last_seen, created_at FROM routers ORDER BY id'
+      'SELECT id, name, location, lan_ip, initial_ip, api_port, wg_ip, webfig_port, winbox_port, status, last_seen, created_at FROM routers ORDER BY id'
     );
     res.json(rows);
   } catch (err) {
@@ -125,7 +125,7 @@ router.get('/', async (req, res) => {
 router.get('/:id/connect-commands', async (req, res) => {
   try {
     const [rows] = await db.query(
-      'SELECT id, name, location, wg_ip, webfig_port, wg_private_key, wg_public_key, status FROM routers WHERE id = ?',
+      'SELECT id, name, location, wg_ip, webfig_port, winbox_port, wg_private_key, wg_public_key, status FROM routers WHERE id = ?',
       [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Router not found' });
@@ -160,6 +160,7 @@ router.get('/:id/connect-commands', async (req, res) => {
     }
 
     const webfig_url = r.webfig_port && vpsIp ? `http://${vpsIp}:${r.webfig_port}` : null;
+    const winbox_url = r.winbox_port && vpsIp ? `${vpsIp}:${r.winbox_port}` : null;
 
     res.json({
       router_id: r.id,
@@ -170,6 +171,7 @@ router.get('/:id/connect-commands', async (req, res) => {
       vps_ip: vpsIp,
       wg_port: wgPort,
       webfig_url,
+      winbox_url,
       commands: {
         step0,
         step1,
@@ -283,6 +285,7 @@ router.get('/:id', async (req, res) => {
     delete r.password;
     const vpsIp = process.env.VPS_IP || '';
     r.webfig_url = r.webfig_port && vpsIp ? `http://${vpsIp}:${r.webfig_port}` : null;
+    r.winbox_url = r.winbox_port && vpsIp ? `${vpsIp}:${r.winbox_port}` : null;
     res.json(r);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch router' });

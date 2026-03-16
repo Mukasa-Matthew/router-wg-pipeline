@@ -85,11 +85,18 @@ async function migrate() {
       true
     );
     await run('ALTER TABLE routers ADD COLUMN webfig_port INT AFTER wg_ip', true);
+    await run('ALTER TABLE routers ADD COLUMN winbox_port INT AFTER webfig_port', true);
     try {
       const [res] = await conn.query('UPDATE routers SET webfig_port = 8085 WHERE id = 1');
       if (res && res.affectedRows > 0) console.log('OK: Conference WiFi (id=1) set to webfig_port 8085');
     } catch (e) {
       console.log('Skip: Conference WiFi port update (id=1 may not exist)');
+    }
+    try {
+      const [res] = await conn.query('UPDATE routers SET winbox_port = 8291 WHERE id = 1');
+      if (res && res.affectedRows > 0) console.log('OK: Conference WiFi (id=1) set to winbox_port 8291');
+    } catch (e) {
+      console.log('Skip: Conference WiFi winbox port update (id=1 may not exist)');
     }
     console.log('Migration complete.');
   } finally {
