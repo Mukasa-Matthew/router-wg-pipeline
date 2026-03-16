@@ -121,7 +121,7 @@ async function checkAllRoutersStatus() {
     let status = 'offline';
     if (peer && peer.lastHandshake) {
       const minutesAgo = (now - peer.lastHandshake.getTime()) / 60000;
-      status = minutesAgo < 3 ? 'online' : 'offline';
+      status = minutesAgo < 2 ? 'online' : 'offline';
     }
     await db.query(
       'UPDATE routers SET status = ?, last_seen = NOW() WHERE id = ?',

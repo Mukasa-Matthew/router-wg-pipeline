@@ -71,8 +71,9 @@ app.get('/api/health', (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
-// Router status check every 30 seconds (uses WireGuard handshake when available)
-const STATUS_INTERVAL = 30 * 1000;
+// Router status check every 10 seconds for quick online/offline detection
+const STATUS_INTERVAL = 10 * 1000;
+checkAllRoutersStatus().catch((err) => console.error('Status check error:', err.message));
 setInterval(() => {
   checkAllRoutersStatus().catch((err) => console.error('Status check error:', err.message));
 }, STATUS_INTERVAL);

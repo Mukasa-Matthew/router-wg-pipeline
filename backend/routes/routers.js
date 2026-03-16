@@ -156,7 +156,7 @@ router.get('/:id/connect-commands', async (req, res) => {
     let tunnel_status = 'offline';
     if (peer && peer.lastHandshake) {
       const minutesAgo = (Date.now() - peer.lastHandshake.getTime()) / 60000;
-      tunnel_status = minutesAgo < 3 ? 'online' : 'offline';
+      tunnel_status = minutesAgo < 2 ? 'online' : 'offline';
     }
 
     const webfig_url = r.webfig_port && vpsIp ? `http://${vpsIp}:${r.webfig_port}` : null;
@@ -241,7 +241,7 @@ router.get('/:id/test-tunnel', async (req, res) => {
     let mikhmon_added = false;
     if (peer && peer.lastHandshake) {
       minutes_ago = Math.round((Date.now() - peer.lastHandshake.getTime()) / 60000);
-      tunnel_up = minutes_ago < 3;
+      tunnel_up = minutes_ago < 2;
       last_handshake = peer.lastHandshake.toISOString();
       bytes_sent = peer.bytesSent || 0;
       bytes_received = peer.bytesReceived || 0;

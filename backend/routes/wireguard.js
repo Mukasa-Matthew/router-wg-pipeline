@@ -24,7 +24,7 @@ router.get('/status', async (req, res) => {
       const live = byKey[r.public_key];
       const lastHandshake = live?.lastHandshake || (r.last_handshake ? new Date(r.last_handshake) : null);
       const minutesAgo = lastHandshake ? (now - lastHandshake.getTime()) / 60000 : null;
-      const connected = lastHandshake && minutesAgo !== null && minutesAgo < 3;
+      const connected = lastHandshake && minutesAgo !== null && minutesAgo < 2;
       return {
         ...r,
         last_handshake: lastHandshake ? lastHandshake.toISOString() : r.last_handshake,

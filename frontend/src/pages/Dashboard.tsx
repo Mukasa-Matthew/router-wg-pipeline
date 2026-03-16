@@ -36,7 +36,7 @@ export function Dashboard() {
 
   useEffect(() => {
     loadRouters();
-    const interval = setInterval(loadRouters, 30000);
+    const interval = setInterval(loadRouters, 15000);
     return () => clearInterval(interval);
   }, []);
 
