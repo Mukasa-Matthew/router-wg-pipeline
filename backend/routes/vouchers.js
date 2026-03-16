@@ -9,7 +9,7 @@ const router = express.Router();
 function normalizeValidityForMikrotik(v) {
   if (!v || typeof v !== 'string') return null;
   const s = v.trim();
-  if (/^\d+(m|h|d)$/i.test(s)) return s;
+  if (/^\d+(m|h|d|w)$/i.test(s)) return s;
   const map = {
     '6-Hours': '6h', '6-hours': '6h',
     '12-Hours': '12h', '12-hours': '12h',
@@ -20,6 +20,7 @@ function normalizeValidityForMikrotik(v) {
   };
   return map[s] || null;
 }
+
 router.use(requireAuth);
 
 /**
@@ -48,23 +49,24 @@ router.post('/generate', async (req, res) => {
     );
     const hp = profileRows[0];
     const validity = hp ? hp.validity : uptime_limit || profile;
+    const normalizedValidity = normalizeValidityForMikrotik(validity) || validity;
+    const uptimeLimitForDb = mikrotikService.validityToUptime(normalizedValidity) || normalizedValidity;
     const profilePrice = hp ? parseFloat(hp.price) || 0 : 0;
 
     const countNum = parseInt(count, 10);
-    const limitUptime = normalizeValidityForMikrotik(validity);
-    console.log(`[Router ${routerId}] Generating ${countNum} vouchers${limitUptime ? ` (limit-uptime=${limitUptime})` : ''}`);
+    console.log(`[Router ${routerId}] Generating ${countNum} vouchers (limit-uptime=${uptimeLimitForDb})`);
     const mikrotikVouchers = await mikrotikService.generateVouchersOnMikrotik(
       router,
       profile,
       countNum,
       prefix,
-      limitUptime
+      normalizedValidity
     );
 
     for (const v of mikrotikVouchers) {
       await db.query(
         'INSERT INTO vouchers (router_id, username, password, profile, uptime_limit, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
-        [routerId, v.username, v.password, v.profile, validity]
+        [routerId, v.username, v.password, v.profile, uptimeLimitForDb]
       );
     }
 
@@ -116,7 +118,8 @@ async function exportUnexportedVouchers(routerId, profile = null, res) {
 
   let csv = 'Login,Password,Uptime Limit,Used Uptime,Used Download,Used Upload\n';
   rows.forEach((v) => {
-    const uptimeLimit = profileTimeMap[v.profile] || v.profile || v.uptime_limit || '';
+    const raw = v.uptime_limit || profileTimeMap[v.profile] || v.profile || '';
+    const uptimeLimit = mikrotikService.validityToUptime(raw) || raw;
     csv += `"${v.username}","${v.password}","${uptimeLimit}","","",""\n`;
   });
 

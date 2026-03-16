@@ -7,6 +7,7 @@ import {
   Pencil,
   Trash2,
   X,
+  Wrench,
 } from 'lucide-react';
 import { api, type HotspotProfile, type HotspotProfileInput } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
@@ -176,7 +177,7 @@ function ProfileModal({
             <input
               value={form.validity}
               onChange={(e) => update({ validity: e.target.value })}
-              placeholder="30m, 1h, 6h, 12h, 1d, 7d, 30d"
+              placeholder="30m, 1h, 6h, 12h, 1d, 1w, 7d, 30d"
               className="input-base"
               required
             />
@@ -269,6 +270,7 @@ export function ProfilesPage() {
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [fixing, setFixing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<HotspotProfile | null>(null);
 
@@ -298,6 +300,18 @@ export function ProfilesPage() {
       toast.error(err instanceof Error ? err.message : 'Sync failed');
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function handleFixAll() {
+    setFixing(true);
+    try {
+      const res = await api.routers.profiles.fixAll(routerId);
+      toast.success(`${res.fixed} profiles updated on MikroTik`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Fix failed');
+    } finally {
+      setFixing(false);
     }
   }
 
@@ -351,6 +365,19 @@ export function ProfilesPage() {
                 <RefreshCw className="w-4 h-4" />
               )}
               Sync from MikroTik
+            </button>
+            <button
+              onClick={handleFixAll}
+              disabled={fixing || profiles.length === 0}
+              className="btn-secondary disabled:opacity-60 flex items-center gap-2"
+              title="Set session-timeout=0s, keepalive-timeout=none on all profiles"
+            >
+              {fixing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Wrench className="w-4 h-4" />
+              )}
+              Fix All Profiles
             </button>
             <button
               onClick={() => {

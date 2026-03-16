@@ -84,6 +84,10 @@ export const api = {
         request<{ synced: number; profiles: HotspotProfile[] }>(
           `/routers/${id}/profiles/sync`
         ),
+      fixAll: (id: number) =>
+        request<{ fixed: number }>(`/routers/${id}/profiles/fix-all`, {
+          method: 'POST',
+        }),
       create: (id: number, data: HotspotProfileInput) =>
         request<{ success: boolean; profile: HotspotProfile }>(
           `/routers/${id}/profiles`,

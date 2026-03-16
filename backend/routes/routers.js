@@ -406,7 +406,7 @@ router.get('/:id/mikhmon-url', async (req, res) => {
 });
 
 // Validation helpers for profiles
-const VALIDITY_REGEX = /^\d+(m|h|d)$/;
+const VALIDITY_REGEX = /^\d+(m|h|d|w)$/;
 const RATE_LIMIT_REGEX = /^\d+M\/\d+M$/;
 
 function validateProfileName(name) {
@@ -423,7 +423,7 @@ function validateProfileBody(body, isUpdate = false) {
     if (nameErr) return nameErr;
   }
   if (body.validity !== undefined && !VALIDITY_REGEX.test(body.validity)) {
-    return 'Validity must match 30m, 1h, 6h, 12h, 1d, 7d, 30d';
+    return 'Validity must match 30m, 1h, 6h, 12h, 1d, 1w, 7d, 30d';
   }
   if (body.price !== undefined) {
     const p = parseInt(body.price, 10);
@@ -547,6 +547,37 @@ router.post('/:id/profiles', async (req, res) => {
 });
 
 /**
+ * POST /api/routers/:id/profiles/fix-all - Fix all profiles on MikroTik
+ * Sets session-timeout=0s, keepalive-timeout=none, add-mac-cookie=yes
+ */
+router.post('/:id/profiles/fix-all', async (req, res) => {
+  try {
+    const routerId = req.params.id;
+    const [routerRows] = await db.query('SELECT * FROM routers WHERE id = ?', [routerId]);
+    if (routerRows.length === 0) return res.status(404).json({ error: 'Router not found' });
+    const router = routerRows[0];
+
+    const [profileRows] = await db.query(
+      'SELECT * FROM hotspot_profiles WHERE router_id = ? AND is_active = 1',
+      [routerId]
+    );
+    let fixed = 0;
+    for (const p of profileRows) {
+      try {
+        await mikrotikService.fixProfileOnMikrotik(router, p.profile_name);
+        fixed++;
+      } catch (err) {
+        console.warn(`[Router ${routerId}] Failed to fix profile ${p.profile_name}:`, err.message);
+      }
+    }
+    res.json({ fixed });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * PUT /api/routers/:id/profiles/:profileId - Update hotspot profile
  */
 router.put('/:id/profiles/:profileId', async (req, res) => {
@@ -640,13 +671,14 @@ router.delete('/:id/profiles/:profileId', async (req, res) => {
 
 function parseValidityToSeconds(validity) {
   if (!validity) return 0;
-  const m = validity.match(/^(\d+)(m|h|d)$/);
+  const m = validity.match(/^(\d+)(m|h|d|w)$/);
   if (!m) return 0;
   const n = parseInt(m[1], 10);
   const u = m[2];
   if (u === 'm') return n * 60;
   if (u === 'h') return n * 3600;
   if (u === 'd') return n * 86400;
+  if (u === 'w') return n * 7 * 86400;
   return 0;
 }
 

@@ -122,6 +122,27 @@ async function rebootRouter(router) {
 }
 
 /**
+ * Convert validity string to MikroTik limit-uptime format.
+ * e.g. "1d" -> "1d", "6h" -> "6h", "1w" -> "7d"
+ */
+function validityToUptime(validity) {
+  if (!validity || typeof validity !== 'string') return null;
+  validity = validity.trim().toLowerCase();
+  if (!validity) return null;
+  if (validity.endsWith('d')) return validity;
+  if (validity.endsWith('h')) return validity;
+  if (validity.endsWith('m')) return validity;
+  if (validity.endsWith('w')) {
+    const m = validity.match(/^(\d+)w$/);
+    if (m) {
+      const weeks = parseInt(m[1], 10);
+      return `${weeks * 7}d`;
+    }
+  }
+  return validity;
+}
+
+/**
  * Generate random string for voucher usernames
  */
 function generateRandom(length) {
@@ -148,6 +169,8 @@ async function getHotspotProfiles(router) {
 
 /**
  * Create hotspot profile on MikroTik
+ * Profiles have session-timeout=0s so they never control time.
+ * All time control comes from limit-uptime on each voucher.
  */
 async function createHotspotProfile(router, profileData) {
   const conn = await connect(router);
@@ -155,14 +178,10 @@ async function createHotspotProfile(router, profileData) {
     const params = [
       `=name=${profileData.profile_name}`,
       `=shared-users=${profileData.shared_users || 1}`,
+      '=session-timeout=0s',
       '=keepalive-timeout=none',
+      '=add-mac-cookie=yes',
     ];
-    if (profileData.session_timeout || profileData.validity) {
-      params.push(
-        `=session-timeout=${profileData.session_timeout || profileData.validity}`
-      );
-      params.push('=add-mac-cookie=yes');
-    }
     if (profileData.idle_timeout) {
       params.push(`=idle-timeout=${profileData.idle_timeout}`);
     }
@@ -227,15 +246,20 @@ async function deleteHotspotProfile(router, profileName) {
 
 /**
  * Generate vouchers on MikroTik (hotspot users)
- * Uses limit-uptime so time counts cumulatively across disconnect/reconnect
- * (unlike session-timeout which resets each session)
+ * ALWAYS sets limit-uptime on each voucher - profiles have session-timeout=0s
+ * so all time control comes from limit-uptime. Timer counts from first login.
  * @param {Object} router - Router record
- * @param {string} profile - Profile name
+ * @param {string} profileName - Profile name
  * @param {number} count - Number of vouchers
  * @param {string} prefix - Username prefix
- * @param {string} [limitUptime] - Validity e.g. "24h", "7d" - enforces cumulative time limit
+ * @param {string} validity - Profile validity e.g. "1d", "6h", "1w" - MUST be set
  */
-async function generateVouchersOnMikrotik(router, profile, count, prefix = 'v', limitUptime = null) {
+async function generateVouchersOnMikrotik(router, profileName, count, prefix = 'v', validity) {
+  const limitUptime = validityToUptime(validity);
+  if (!limitUptime) {
+    throw new Error(`Invalid validity "${validity}" - must be e.g. 1d, 6h, 1w, 30d`);
+  }
+
   const conn = await connect(router);
   const vouchers = [];
 
@@ -245,15 +269,37 @@ async function generateVouchersOnMikrotik(router, profile, count, prefix = 'v', 
       const params = [
         `=name=${username}`,
         `=password=${username}`,
-        `=profile=${profile}`,
+        `=profile=${profileName}`,
+        `=comment=${profileName} Voucher`,
+        `=limit-uptime=${limitUptime}`,
       ];
-      if (limitUptime) {
-        params.push(`=limit-uptime=${limitUptime}`);
-      }
       await conn.write('/ip/hotspot/user/add', params);
-      vouchers.push({ username, password: username, profile });
+      vouchers.push({ username, password: username, profile: profileName });
     }
     return vouchers;
+  } finally {
+    conn.close();
+  }
+}
+
+/**
+ * Fix profile time settings on MikroTik (session-timeout=0s, keepalive-timeout=none, add-mac-cookie=yes)
+ */
+async function fixProfileOnMikrotik(router, profileName) {
+  const profiles = await getHotspotProfiles(router);
+  const p = profiles.find((x) => (x.name || x['profile-name']) === profileName);
+  if (!p) throw new Error(`Profile ${profileName} not found on MikroTik`);
+  const mikrotikId = p['.id'] || p.id;
+
+  const conn = await connect(router);
+  try {
+    await conn.write('/ip/hotspot/user/profile/set', [
+      `=.id=${mikrotikId}`,
+      '=session-timeout=0s',
+      '=keepalive-timeout=none',
+      '=add-mac-cookie=yes',
+    ]);
+    return true;
   } finally {
     conn.close();
   }
@@ -272,4 +318,6 @@ module.exports = {
   createHotspotProfile,
   updateHotspotProfile,
   deleteHotspotProfile,
+  fixProfileOnMikrotik,
+  validityToUptime,
 };
