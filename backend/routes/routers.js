@@ -387,13 +387,16 @@ router.get('/:id/users', async (req, res) => {
 
 /**
  * POST /api/routers/:id/reboot - Reboot router
+ * Fire-and-forget: router disconnects on reboot, so we return success immediately
  */
 router.post('/:id/reboot', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM routers WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Router not found' });
-    await mikrotikService.rebootRouter(rows[0]);
     res.json({ success: true });
+    mikrotikService.rebootRouter(rows[0]).catch((err) =>
+      console.warn('[Reboot] Router may have rebooted:', err.message)
+    );
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

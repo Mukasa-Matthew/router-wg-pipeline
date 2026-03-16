@@ -147,10 +147,14 @@ router.post('/generate', async (req, res) => {
       normalizedValidity
     );
 
-    for (const v of mikrotikVouchers) {
+    if (mikrotikVouchers.length > 0) {
+      const values = mikrotikVouchers
+        .map((v) => [routerId, v.username, v.password, v.profile, uptimeLimitForDb])
+        .flat();
+      const placeholders = mikrotikVouchers.map(() => '(?, ?, ?, ?, ?, NOW())').join(', ');
       await db.query(
-        'INSERT INTO vouchers (router_id, username, password, profile, uptime_limit, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
-        [routerId, v.username, v.password, v.profile, uptimeLimitForDb]
+        `INSERT INTO vouchers (router_id, username, password, profile, uptime_limit, created_at) VALUES ${placeholders}`,
+        values
       );
     }
 

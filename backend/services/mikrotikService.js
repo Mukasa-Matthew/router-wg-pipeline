@@ -14,6 +14,17 @@ async function testConnection(ip, user, pass, port = 8728) {
   }
 }
 
+const MIKROTIK_TIMEOUT_MS = 45000;
+
+function withTimeout(promise, ms = MIKROTIK_TIMEOUT_MS) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('MikroTik operation timed out')), ms)
+    ),
+  ]);
+}
+
 /**
  * Connect to MikroTik - ALWAYS use wg_ip (WireGuard tunnel IP) for data isolation
  * Routers must have tunnel up to be managed
@@ -27,7 +38,7 @@ async function connect(router) {
     password: router.password,
     port: router.api_port || 8728,
   });
-  await conn.connect();
+  await withTimeout(conn.connect());
   return conn;
 }
 
@@ -264,8 +275,8 @@ async function deleteHotspotProfile(router, profileName) {
 
 /**
  * Generate vouchers on MikroTik (hotspot users)
- * ALWAYS sets limit-uptime on each voucher - profiles have session-timeout=0s
- * so all time control comes from limit-uptime. Timer counts from first login.
+ * Uses a batch script (1 API call) instead of N sequential calls - much faster over high-latency links.
+ * ALWAYS sets limit-uptime on each voucher - profiles have session-timeout=0s.
  * @param {Object} router - Router record
  * @param {string} profileName - Profile name
  * @param {number} count - Number of vouchers
@@ -278,26 +289,47 @@ async function generateVouchersOnMikrotik(router, profileName, count, prefix = '
     throw new Error(`Invalid validity "${validity}" - must be e.g. 1d, 6h, 1w, 30d`);
   }
 
-  const conn = await connect(router);
   const vouchers = [];
+  for (let i = 0; i < count; i++) {
+    const username = `${prefix}${generateRandom(6)}`;
+    vouchers.push({ username, password: username, profile: profileName });
+  }
 
+  const scriptLines = vouchers.map(
+    (v) =>
+      `/ip hotspot user add name="${v.username}" password="${v.password}" profile="${profileName}" comment="${profileName} Voucher" limit-uptime=${limitUptime}`
+  );
+  const scriptSource = scriptLines.join('\n');
+  const scriptName = `rh-voucher-${Date.now()}`;
+
+  const conn = await connect(router);
+  let scriptId = null;
   try {
-    for (let i = 0; i < count; i++) {
-      const username = `${prefix}${generateRandom(6)}`;
-      const params = [
-        `=name=${username}`,
-        `=password=${username}`,
-        `=profile=${profileName}`,
-        `=comment=${profileName} Voucher`,
-        `=limit-uptime=${limitUptime}`,
-      ];
-      await conn.write('/ip/hotspot/user/add', params);
-      vouchers.push({ username, password: username, profile: profileName });
+    await conn.write('/system/script/add', [`=name=${scriptName}`, `=source=${scriptSource}`]);
+    const [scripts] = await conn.write('/system/script/print', [`?name=${scriptName}`]);
+    scriptId = scripts?.[0]?.['.id'];
+    if (!scriptId) throw new Error('Failed to get script id');
+    await conn.write('/system/script/run', [`=.id=${scriptId}`]);
+  } catch (err) {
+    if (scriptId) {
+      try {
+        await conn.write('/system/script/remove', [`=.id=${scriptId}`]);
+      } catch {}
     }
-    return vouchers;
+    throw err;
   } finally {
+    try {
+      if (scriptId) {
+        await conn.write('/system/script/remove', [`=.id=${scriptId}`]);
+      } else {
+        const [s] = await conn.write('/system/script/print', [`?name=${scriptName}`]);
+        if (s?.['.id']) await conn.write('/system/script/remove', [`=.id=${s['.id']}`]);
+      }
+    } catch {}
     conn.close();
   }
+
+  return vouchers;
 }
 
 /**
