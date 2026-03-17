@@ -509,6 +509,71 @@ router.post('/delete-profile', requireBillingApiKeyV2, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/billing/profiles-by-router/:routerhub_router_id
+ * Read-only endpoint for billing: fetch MikroTik hotspot profiles for one router.
+ *
+ * Header: x-billing-api-key: <secret>
+ * Optional: ?owner_id=4 to enforce ownership (recommended for billing).
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   router_id: "1",
+ *   profiles: [{ profile_name, uptime_limit, rate_limit, data_limit }]
+ * }
+ */
+router.get('/profiles-by-router/:routerhub_router_id', requireBillingApiKeyV2, async (req, res) => {
+  try {
+    const routerId = parseInt(req.params.routerhub_router_id, 10);
+    const ownerId = req.query.owner_id ? parseInt(String(req.query.owner_id), 10) : null;
+
+    if (!routerId) {
+      return billingFail(res, 400, 'MIKROTIK_ERROR', 'Invalid routerhub_router_id');
+    }
+
+    const [routerRows] = await db.query('SELECT * FROM routers WHERE id = ?', [routerId]);
+    if (routerRows.length === 0) return billingFail(res, 404, 'ROUTER_NOT_FOUND', 'Router not found');
+
+    const r = routerRows[0];
+    if (ownerId != null && parseInt(r.billing_owner_id, 10) !== ownerId) {
+      return billingFail(res, 403, 'OWNERSHIP_MISMATCH', 'Router does not belong to owner');
+    }
+    if (!r.wg_ip) return billingFail(res, 400, 'ROUTER_OFFLINE', 'Router has no wg_ip');
+    if (r.status !== 'online') return billingFail(res, 400, 'ROUTER_OFFLINE', 'Router offline');
+
+    let profiles;
+    try {
+      profiles = await mikrotikService.getHotspotProfiles(r);
+    } catch (e) {
+      return billingFail(res, 500, 'MIKROTIK_ERROR', e.message || 'Failed to fetch profiles');
+    }
+
+    const mapped = Array.isArray(profiles)
+      ? profiles
+          .map((p) => {
+            const name = (p.name || p['profile-name'] || '').toString().trim();
+            if (!name) return null;
+            const sessionTimeout = p['session-timeout'] || p.sessionTimeout || null;
+            const rateLimit = p['rate-limit'] || p.rateLimit || null;
+
+            return {
+              profile_name: name,
+              uptime_limit: sessionTimeout || null,
+              rate_limit: rateLimit || null,
+              data_limit: null,
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    return res.json({ success: true, router_id: String(routerId), profiles: mapped });
+  } catch (err) {
+    console.error(err);
+    return billingFail(res, 500, 'MIKROTIK_ERROR', 'Failed to fetch profiles');
+  }
+});
+
 // All routes below require RouterHub session (super admin)
 router.use(requireAuth);
 
