@@ -147,6 +147,11 @@ export function RouterCard({
                 {router.location}
               </p>
             )}
+            {(router.billing_owner_id != null || router.billing_hotspot_key) && (
+              <p className="text-xs text-navy-500 mt-1">
+                Billing: {router.billing_hotspot_key || `owner #${router.billing_owner_id}`}
+              </p>
+            )}
           </div>
         </div>
         <div className="relative" onClick={(e) => e.stopPropagation()}>

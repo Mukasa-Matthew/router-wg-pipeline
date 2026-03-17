@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Loader2, CheckCircle, XCircle } from 'lucide-react';
-import { api, type AddRouterData } from '../lib/api';
+import { api, type AddRouterData, type BillingOwner } from '../lib/api';
 
 const STEPS = [
   'Testing MikroTik connection (or skipped)',
@@ -36,6 +36,7 @@ export function AddRouterModal({
   const [error, setError] = useState('');
   const [stepStatus, setStepStatus] = useState<Record<number, 'pending' | 'active' | 'done' | 'error'>>({});
   const [currentMessage, setCurrentMessage] = useState('');
+  const [billingOwners, setBillingOwners] = useState<BillingOwner[]>([]);
 
   function update(f: Partial<AddRouterData>) {
     setForm((p) => ({ ...p, ...f }));
@@ -115,6 +116,11 @@ export function AddRouterModal({
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!open) return;
+    api.billing.owners({ limit: 500 }).then((r) => setBillingOwners(r.data || [])).catch(() => setBillingOwners([]));
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -257,6 +263,36 @@ export function AddRouterModal({
                     required
                   />
                 </div>
+              </div>
+
+              <div className="border-t border-navy-200 pt-4 mt-2">
+                <p className="text-sm font-medium text-navy-700 mb-2">Billing client (optional)</p>
+                <p className="text-xs text-navy-500 mb-2">
+                  Link this router to a hotspot owner in the WiFi Billing system. Use owner ID or pick from list if billing API is configured.
+                </p>
+                {billingOwners.length > 0 ? (
+                  <select
+                    value={form.billing_owner_id ?? ''}
+                    onChange={(e) => update({ billing_owner_id: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50 text-navy-900 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                  >
+                    <option value="">— None —</option>
+                    {billingOwners.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.hotspot_name || o.name || o.email || `Owner #${o.id}`}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Billing owner ID (e.g. 1)"
+                    value={form.billing_owner_id ?? ''}
+                    onChange={(e) => update({ billing_owner_id: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50 text-navy-900 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+                  />
+                )}
               </div>
             </>
           )}

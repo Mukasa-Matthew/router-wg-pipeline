@@ -163,6 +163,18 @@ export const api = {
         `/reports/vouchers/${id}`
       ),
   },
+  billing: {
+    owners: (params?: { page?: number; limit?: number }) => {
+      const sp = new URLSearchParams();
+      if (params?.page) sp.set('page', String(params.page));
+      if (params?.limit) sp.set('limit', String(params.limit));
+      return request<{ data: BillingOwner[]; total: number }>(
+        `/billing/owners${sp.toString() ? `?${sp}` : ''}`
+      );
+    },
+    export: () =>
+      request<BillingRouterExport[]>(`/billing/export`),
+  },
 };
 
 export interface Router {
@@ -180,6 +192,9 @@ export interface Router {
   status: 'online' | 'offline' | 'tunnel_failed';
   last_seen: string | null;
   created_at: string;
+  billing_owner_id?: number | null;
+  billing_router_id?: number | null;
+  billing_hotspot_key?: string | null;
 }
 
 export interface AddRouterData {
@@ -194,6 +209,31 @@ export interface AddRouterData {
   notes?: string;
   /** Skip MikroTik connection test (use when router not reachable from VPS; you'll run connect commands manually) */
   skipConnectionTest?: boolean;
+  /** Billing system hotspot owner id (links this router to a client in WiFi Billing) */
+  billing_owner_id?: number | null;
+  /** Billing hotspot key (e.g. hs_xxxxxxxx) for display/linking */
+  billing_hotspot_key?: string | null;
+}
+
+export interface BillingOwner {
+  id: number;
+  name?: string;
+  email?: string;
+  hotspot_name?: string;
+  hotspot_key?: string;
+  [key: string]: unknown;
+}
+
+export interface BillingRouterExport {
+  id: number;
+  name: string;
+  location?: string | null;
+  status: string;
+  wg_ip: string | null;
+  last_seen: string | null;
+  billing_owner_id: number | null;
+  billing_router_id: number | null;
+  billing_hotspot_key: string | null;
 }
 
 export interface RouterStats {

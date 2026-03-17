@@ -2,6 +2,7 @@ const db = require('../config/database');
 const mikrotikService = require('./mikrotikService');
 const wireguardService = require('./wireguardService');
 const mikhmonService = require('./mikhmonService');
+const billingService = require('./billingService');
 
 /**
  * Add router - saves to DB, adds peer to VPS. Admin runs connect commands on MikroTik manually.
@@ -48,6 +49,30 @@ async function addRouter(routerData, onStep) {
     emit(4, 'VPS peer added', 'done');
 
     emit(5, 'Saving router to database...', 'active');
+    const billingOwnerId = routerData.billing_owner_id ? parseInt(routerData.billing_owner_id, 10) : null;
+    let billingRouterId = routerData.billing_router_id ? parseInt(routerData.billing_router_id, 10) : null;
+    const billingHotspotKey = routerData.billing_hotspot_key || null;
+
+    // Push router to billing using RouterHub's connectivity only (direct_ip = our WireGuard IP).
+    // Do not use billing's VPN; RouterHub's WireGuard is the single source of tunnel/connectivity.
+    if (billingService.enabled() && billingOwnerId && !billingRouterId) {
+      try {
+        const billingPayload = {
+          name: routerData.name,
+          connection_method: 'direct_ip',
+          direct_ip: wgIp || initialIp,
+          api_port: routerData.api_port || 8728,
+          api_username: routerData.username,
+          api_password: routerData.password,
+          enabled_for_owner_view: true,
+        };
+        const created = await billingService.createRouterInBilling(billingOwnerId, billingPayload);
+        if (created && created.id) billingRouterId = created.id;
+      } catch (e) {
+        console.warn('[addRouter] Billing create failed:', e.message);
+      }
+    }
+
     const [result] = await db.query(
       'INSERT INTO routers SET ?',
       {
@@ -64,6 +89,9 @@ async function addRouter(routerData, onStep) {
         client_name: routerData.client_name,
         monthly_price: routerData.monthly_price,
         notes: routerData.notes,
+        billing_owner_id: billingOwnerId,
+        billing_router_id: billingRouterId,
+        billing_hotspot_key: billingHotspotKey,
         status: 'offline',
       }
     );

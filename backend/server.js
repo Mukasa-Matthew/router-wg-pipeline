@@ -10,6 +10,7 @@ const routerRoutes = require('./routes/routers');
 const voucherRoutes = require('./routes/vouchers');
 const wireguardRoutes = require('./routes/wireguard');
 const reportRoutes = require('./routes/reports');
+const billingRoutes = require('./routes/billing');
 const { checkAllRoutersStatus } = require('./services/routerController');
 const db = require('./config/database');
 const mikrotikService = require('./services/mikrotikService');
@@ -65,6 +66,7 @@ app.use('/api/routers', routerRoutes);
 app.use('/api/vouchers', voucherRoutes);
 app.use('/api/wireguard', wireguardRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/billing', billingRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

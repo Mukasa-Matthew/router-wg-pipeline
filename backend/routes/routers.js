@@ -110,7 +110,7 @@ router.get('/', async (req, res) => {
       return res.json(rows);
     }
     const [rows] = await db.query(
-      'SELECT id, name, location, lan_ip, initial_ip, api_port, wg_ip, webfig_port, winbox_port, status, last_seen, created_at FROM routers ORDER BY id'
+      'SELECT id, name, location, lan_ip, initial_ip, api_port, wg_ip, webfig_port, winbox_port, status, last_seen, created_at, billing_owner_id, billing_router_id, billing_hotspot_key FROM routers ORDER BY id'
     );
     res.json(rows);
   } catch (err) {
@@ -303,7 +303,7 @@ router.get('/:id', async (req, res) => {
  */
 router.put('/:id', async (req, res) => {
   try {
-    const { name, location, lan_ip, api_port, username, password, client_name, monthly_price, notes } =
+    const { name, location, lan_ip, api_port, username, password, client_name, monthly_price, notes, billing_owner_id, billing_router_id, billing_hotspot_key } =
       req.body;
     const updates = {
       name,
@@ -315,6 +315,9 @@ router.put('/:id', async (req, res) => {
       client_name,
       monthly_price,
       notes,
+      billing_owner_id: billing_owner_id === '' || billing_owner_id === null ? null : billing_owner_id,
+      billing_router_id: billing_router_id === '' || billing_router_id === null ? null : billing_router_id,
+      billing_hotspot_key: billing_hotspot_key === '' ? null : billing_hotspot_key,
     };
     const filtered = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
     if (Object.keys(filtered).length === 0) return res.status(400).json({ error: 'No fields to update' });

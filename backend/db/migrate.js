@@ -127,6 +127,9 @@ async function migrate() {
       console.log('Skip: Conference WiFi winbox port update (id=1 may not exist)');
     }
 
+    await run('ALTER TABLE routers ADD COLUMN billing_owner_id INT NULL AFTER notes', true);
+    await run('ALTER TABLE routers ADD COLUMN billing_router_id INT NULL AFTER billing_owner_id', true);
+    await run('ALTER TABLE routers ADD COLUMN billing_hotspot_key VARCHAR(50) NULL AFTER billing_router_id', true);
     await addIndexes(conn);
     console.log('Migration complete.');
   } finally {
