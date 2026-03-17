@@ -114,7 +114,7 @@ async function getRouterStats(router) {
 async function getActiveHotspotUsers(router) {
   const conn = await connect(router);
   try {
-    const users = await conn.write('/ip/hotspot/active/print');
+    const users = await withTimeout(conn.write('/ip/hotspot/active/print'));
     return users;
   } finally {
     conn.close();

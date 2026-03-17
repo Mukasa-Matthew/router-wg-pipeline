@@ -94,7 +94,12 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
     const result = [];
     for (const r of routers) {
       try {
-        const users = await mikrotikService.getActiveHotspotUsers(r);
+        const users = await Promise.race([
+          mikrotikService.getActiveHotspotUsers(r),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Active users timed out')), 20000)
+          ),
+        ]);
         const normalized = Array.isArray(users)
           ? users.map((u) => ({
               username: u.user || u.name || u.username || null,
@@ -103,7 +108,6 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
               uptime: u.uptime || null,
               session_time_left: u['session-time-left'] || null,
               device_name: u['host-name'] || u['device-name'] || null,
-              raw: u,
             }))
           : [];
 
