@@ -543,17 +543,11 @@ router.get('/profiles-by-router/:routerhub_router_id', requireBillingApiKeyV2, a
     if (r.status !== 'online') return billingFail(res, 400, 'ROUTER_OFFLINE', 'Router offline');
 
     let profiles;
-    try {
-      profiles = await mikrotikService.getHotspotProfiles(r);
-    } catch (e) {
-      return billingFail(res, 500, 'MIKROTIK_ERROR', e.message || 'Failed to fetch profiles');
-    }
-
-    // Load RouterHub's own hotspot_profiles for this router (validity + price).
+    // Load RouterHub's own hotspot_profiles for this router (validity + price, and optionally rate_limit).
     let dbProfiles = [];
     try {
       const [rows] = await db.query(
-        'SELECT profile_name, validity, price FROM hotspot_profiles WHERE router_id = ?',
+        'SELECT profile_name, validity, price, rate_limit FROM hotspot_profiles WHERE router_id = ?',
         [routerId]
       );
       dbProfiles = Array.isArray(rows) ? rows : [];
@@ -570,6 +564,31 @@ router.get('/profiles-by-router/:routerhub_router_id', requireBillingApiKeyV2, a
       const name = (p.profile_name || '').toString().trim();
       if (!name) continue;
       dbByName.set(name, p);
+    }
+
+    // Primary source of truth: DB rows. This avoids live MikroTik calls for billing, keeping
+    // the endpoint fast and resilient under load.
+    if (dbProfiles.length > 0) {
+      const mappedFromDb = dbProfiles.map((p) => ({
+        profile_name: (p.profile_name || '').toString().trim(),
+        uptime_limit: p.validity || null,
+        rate_limit: p.rate_limit || null,
+        data_limit: null,
+        price_ugx: p.price != null ? Number(p.price) : null,
+      })).filter((p) => p.profile_name);
+
+      return res.json({ success: true, router_id: String(routerId), profiles: mappedFromDb });
+    }
+
+    // Fallback ONLY when hotspot_profiles table is empty for this router.
+    try {
+      profiles = await mikrotikService.getHotspotProfiles(r);
+    } catch (e) {
+      console.warn(
+        '[billing/profiles-by-router] Mikrotik profiles fetch failed, returning empty list:',
+        e.message
+      );
+      return res.json({ success: true, router_id: String(routerId), profiles: [] });
     }
 
     const mapped = Array.isArray(profiles)
