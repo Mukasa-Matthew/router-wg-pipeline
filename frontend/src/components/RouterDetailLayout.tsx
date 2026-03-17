@@ -26,21 +26,25 @@ export function RouterDetailLayout() {
 
   useEffect(() => {
     if (!routerId) return;
-    (async () => {
-      try {
-        const [r, t] = await Promise.all([
-          api.routers.get(routerId),
-          api.routers.testTunnel(routerId).catch(() => null),
-        ]);
-        setRouter(r);
-        setTunnelStatus(t);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    refreshRouter();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routerId]);
+
+  async function refreshRouter() {
+    if (!routerId) return;
+    try {
+      const [r, t] = await Promise.all([
+        api.routers.get(routerId),
+        api.routers.testTunnel(routerId).catch(() => null),
+      ]);
+      setRouter(r);
+      setTunnelStatus(t);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function openMikHmon() {
     if (!tunnelStatus?.tunnel_up) {
@@ -120,7 +124,15 @@ export function RouterDetailLayout() {
         )}
       </div>
 
-      <Outlet context={{ router, tunnelStatus, openVouchers: () => setVoucherOpen(true), refreshVouchers: voucherRefreshTrigger }} />
+      <Outlet
+        context={{
+          router,
+          tunnelStatus,
+          openVouchers: () => setVoucherOpen(true),
+          refreshVouchers: voucherRefreshTrigger,
+          refreshRouter,
+        }}
+      />
       <VoucherModal
         routerId={voucherOpen ? routerId : null}
         onClose={() => setVoucherOpen(false)}

@@ -18,13 +18,19 @@ import {
 import { api, type Router, type TunnelStatus, type HotspotProfile, type HotspotUser, type RouterStats } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
 
-type OutletContext = { router: Router; tunnelStatus: TunnelStatus | null; openVouchers?: () => void; refreshVouchers?: number };
+type OutletContext = {
+  router: Router;
+  tunnelStatus: TunnelStatus | null;
+  openVouchers?: () => void;
+  refreshVouchers?: number;
+  refreshRouter?: () => void;
+};
 
 export function RouterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
-  const { router, tunnelStatus, openVouchers, refreshVouchers } = useOutletContext<OutletContext>();
+  const { router, tunnelStatus, openVouchers, refreshVouchers, refreshRouter } = useOutletContext<OutletContext>();
   const routerId = parseInt(id || '0', 10);
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
   const [users, setUsers] = useState<HotspotUser[] | null>(null);
@@ -33,8 +39,14 @@ export function RouterDetailPage() {
   const [mikhmonLoading, setMikhmonLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [billingOwnerId, setBillingOwnerId] = useState<string>('');
+  const [savingBilling, setSavingBilling] = useState(false);
 
   const isOnline = tunnelStatus?.tunnel_up ?? router.status === 'online';
+
+  useEffect(() => {
+    setBillingOwnerId(router.billing_owner_id != null ? String(router.billing_owner_id) : '');
+  }, [router.billing_owner_id]);
 
   useEffect(() => {
     if (!routerId) return;
@@ -77,6 +89,20 @@ export function RouterDetailPage() {
     }
   }
 
+  async function saveBillingOwner() {
+    setSavingBilling(true);
+    try {
+      const val = billingOwnerId.trim();
+      await api.routers.update(routerId, { billing_owner_id: val === '' ? null : parseInt(val, 10) });
+      toast.success('Billing owner linked');
+      await refreshRouter?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save billing owner');
+    } finally {
+      setSavingBilling(false);
+    }
+  }
+
   const res = stats?.resources || {};
   const cpuLoad = res['cpu-load'] ?? null;
   const totalMem = res['total-memory'] ?? 0;
@@ -114,6 +140,31 @@ export function RouterDetailPage() {
               <dd className="font-mono text-navy-900">{router.lan_ip || router.wg_ip || '—'}</dd>
             </div>
           </dl>
+
+          <div className="mt-4 pt-4 border-t border-navy-200">
+            <p className="text-sm font-medium text-navy-700 mb-2">Billing link</p>
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                min={1}
+                placeholder="Billing owner id (hotspot_owners.id)"
+                value={billingOwnerId}
+                onChange={(e) => setBillingOwnerId(e.target.value)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50 text-navy-900 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+              />
+              <button
+                type="button"
+                onClick={saveBillingOwner}
+                disabled={savingBilling}
+                className="px-4 py-2.5 rounded-xl btn-primary disabled:opacity-60"
+              >
+                {savingBilling ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+              </button>
+            </div>
+            <p className="text-xs text-navy-500 mt-2">
+              Use the billing numeric owner id (same as billing users.hotspot_owner_id). This controls what the owner sees in billing “My Routers”.
+            </p>
+          </div>
         </div>
 
         <div className="rounded-2xl border border-navy-200 bg-white p-5 shadow-card">
