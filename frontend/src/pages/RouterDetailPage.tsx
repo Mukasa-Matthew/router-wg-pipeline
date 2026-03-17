@@ -139,6 +139,10 @@ export function RouterDetailPage() {
               <dt className="text-navy-500">Connection IP</dt>
               <dd className="font-mono text-navy-900">{router.lan_ip || router.wg_ip || '—'}</dd>
             </div>
+            <div>
+              <dt className="text-navy-500">RouterHub ID</dt>
+              <dd className="font-mono text-navy-900">{router.id}</dd>
+            </div>
           </dl>
 
           <div className="mt-4 pt-4 border-t border-navy-200">

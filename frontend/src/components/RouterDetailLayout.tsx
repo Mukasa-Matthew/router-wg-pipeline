@@ -87,7 +87,12 @@ export function RouterDetailLayout() {
       </div>
 
       <h1 className="text-2xl font-bold text-navy-900 mb-1">{router.name}</h1>
-      <p className="text-navy-600 mb-6">{router.location || router.wg_ip || 'Router details'}</p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-6 text-navy-600">
+        <p>{router.location || router.wg_ip || 'Router details'}</p>
+        <span className="text-sm">
+          RouterHub ID: <span className="font-mono text-navy-900">{routerId}</span>
+        </span>
+      </div>
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">

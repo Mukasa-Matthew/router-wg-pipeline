@@ -152,6 +152,9 @@ export function RouterCard({
                 Billing: {router.billing_hotspot_key || `owner #${router.billing_owner_id}`}
               </p>
             )}
+            <p className="text-xs text-navy-500 mt-1">
+              RouterHub ID: <span className="font-mono">{router.id}</span>
+            </p>
           </div>
         </div>
         <div className="relative" onClick={(e) => e.stopPropagation()}>
