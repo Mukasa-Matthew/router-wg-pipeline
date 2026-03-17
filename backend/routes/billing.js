@@ -15,6 +15,28 @@ const ACTIVE_USERS_CACHE_TTL_MS = 15000;
 const DHCP_LEASES_CACHE = new Map(); // router_id -> { ts, map }
 const DHCP_LEASES_CACHE_TTL_MS = 30000;
 
+/** Normalize validity to MikroTik format (e.g. 24h, 7d) for limit-uptime */
+function normalizeValidityForMikrotik(v) {
+  if (!v || typeof v !== 'string') return null;
+  const s = v.trim();
+  if (/^\d+(m|h|d|w)$/i.test(s)) return s;
+  const map = {
+    '6-Hours': '6h',
+    '6-hours': '6h',
+    '12-Hours': '12h',
+    '12-hours': '12h',
+    '24-Hours': '24h',
+    '24-hours': '24h',
+    '1-Day': '1d',
+    '1-day': '1d',
+    '1-Week': '7d',
+    '1-week': '7d',
+    '1-Month': '30d',
+    '1-month': '30d',
+  };
+  return map[s] || null;
+}
+
 /**
  * Server-to-server auth: Billing backend calls with this header to get real-time router status.
  * Set BILLING_API_SECRET in RouterHub .env; billing app uses the same value in X-Billing-Api-Key.
@@ -24,6 +46,23 @@ function requireBillingApiKey(req, res, next) {
   const key = req.headers['x-billing-api-key'];
   if (!secret || key !== secret) {
     return res.status(401).json({ error: 'Unauthorized', code: 'BILLING_API_KEY_REQUIRED' });
+  }
+  next();
+}
+
+function billingFail(res, status, code, error) {
+  return res.status(status).json({ success: false, error, code });
+}
+
+/**
+ * V2 auth for NEW billing endpoints only (keeps existing endpoints unchanged).
+ * Uses the new standardized error format/codes.
+ */
+function requireBillingApiKeyV2(req, res, next) {
+  const secret = process.env.BILLING_API_SECRET;
+  const key = req.headers['x-billing-api-key'];
+  if (!secret || key !== secret) {
+    return billingFail(res, 401, 'INVALID_SECRET', 'Unauthorized');
   }
   next();
 }
@@ -259,6 +298,214 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch active users' });
+  }
+});
+
+/**
+ * POST /api/billing/generate-vouchers
+ * For billing server only (API key required). Generates vouchers on a specific RouterHub router.
+ *
+ * Body:
+ * - owner_id: number (billing hotspot_owner_id)
+ * - routerhub_router_id: number|string (RouterHub routers.id)
+ * - profile: string (hotspot profile name)
+ * - count: number
+ * - prefix?: string
+ * - uptime_limit?: string (e.g. 1d, 6h) - optional override
+ *
+ * Response:
+ * - { owner_id, router_id, vouchers: [{ username, password, profile, uptime_limit }] }
+ */
+router.post('/generate-vouchers', requireBillingApiKey, async (req, res) => {
+  try {
+    const ownerId = parseInt(req.body?.owner_id, 10);
+    const routerId = parseInt(req.body?.routerhub_router_id, 10);
+    // Support both "profile" (legacy) and "profile_name" (billing-side)
+    const profile =
+      typeof req.body?.profile_name === 'string'
+        ? req.body.profile_name.trim()
+        : typeof req.body?.profile === 'string'
+          ? req.body.profile.trim()
+          : '';
+    const prefix = typeof req.body?.prefix === 'string' && req.body.prefix.trim() ? req.body.prefix.trim() : 'v';
+    const countNum = parseInt(req.body?.count, 10);
+    const uptimeLimitInput =
+      typeof req.body?.uptime_limit === 'string' && req.body.uptime_limit.trim()
+        ? req.body.uptime_limit.trim()
+        : null;
+
+    if (!ownerId || !routerId || !profile || !countNum) {
+      return res.status(400).json({ success: false, error: 'owner_id, routerhub_router_id, profile_name, count required', code: 'MIKROTIK_ERROR' });
+    }
+    if (countNum < 1 || countNum > 1000) {
+      return res.status(400).json({ success: false, error: 'count must be between 1 and 1000', code: 'MIKROTIK_ERROR' });
+    }
+
+    const [routerRows] = await db.query(
+      'SELECT * FROM routers WHERE id = ? AND billing_owner_id = ?',
+      [routerId, ownerId]
+    );
+    if (routerRows.length === 0) {
+      // Keep old behavior but add standardized code for billing callers
+      return res.status(404).json({ success: false, error: 'Router not found', code: 'ROUTER_NOT_FOUND' });
+    }
+    const r = routerRows[0];
+    if (!r.wg_ip) {
+      return res.status(400).json({ success: false, error: 'Router has no wg_ip. Tunnel must be up.', code: 'ROUTER_OFFLINE' });
+    }
+    if (r.status !== 'online') {
+      return res.status(400).json({ success: false, error: 'Router offline', code: 'ROUTER_OFFLINE' });
+    }
+
+    // Determine validity/limit-uptime:
+    // - Prefer request uptime_limit override
+    // - Else try hotspot_profiles.validity
+    // - Else fall back to profile string (common when profile names are like 1d/6h)
+    let validity = uptimeLimitInput;
+    if (!validity) {
+      const [profileRows] = await db.query(
+        'SELECT validity FROM hotspot_profiles WHERE router_id = ? AND profile_name = ? LIMIT 1',
+        [routerId, profile]
+      );
+      validity = profileRows?.[0]?.validity || null;
+    }
+    if (!validity) validity = profile;
+
+    const normalizedValidity = normalizeValidityForMikrotik(validity) || validity;
+    if (!normalizedValidity || !mikrotikService.validityToUptime(normalizedValidity)) {
+      return res.status(400).json({ success: false, error: `Invalid validity "${validity}". Use format like 1d, 6h, 24h, 7d, or 30d`, code: 'MIKROTIK_ERROR' });
+    }
+
+    // Verify profile exists on the router (billing requirement)
+    try {
+      const profiles = await mikrotikService.getHotspotProfiles(r);
+      const exists = Array.isArray(profiles)
+        ? profiles.some((p) => String(p.name || p['profile-name'] || '').trim() === profile)
+        : false;
+      if (!exists) {
+        return res.status(400).json({ success: false, error: 'Profile not found on router', code: 'PROFILE_NOT_FOUND' });
+      }
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e.message || 'Failed to read profiles from router', code: 'MIKROTIK_ERROR' });
+    }
+
+    const mikrotikVouchers = await mikrotikService.generateVouchersOnMikrotik(
+      r,
+      profile,
+      countNum,
+      prefix,
+      normalizedValidity
+    );
+
+    const uptimeLimitForDb = mikrotikService.validityToUptime(normalizedValidity) || normalizedValidity;
+    const vouchers = Array.isArray(mikrotikVouchers)
+      ? mikrotikVouchers.map((v) => ({
+          username: v.username,
+          password: v.password,
+          profile: v.profile || profile,
+          uptime_limit: uptimeLimitForDb,
+        }))
+      : [];
+
+    // Keep existing shape (owner_id/router_id/vouchers) but also include success for new callers.
+    res.json({ success: true, owner_id: ownerId, router_id: routerId, vouchers });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Failed to generate vouchers', code: 'MIKROTIK_ERROR' });
+  }
+});
+
+/**
+ * POST /api/billing/create-profile
+ * New billing endpoint (API key required) - uses standardized error format.
+ */
+router.post('/create-profile', requireBillingApiKeyV2, async (req, res) => {
+  try {
+    const ownerId = parseInt(req.body?.owner_id, 10);
+    const routerId = parseInt(req.body?.routerhub_router_id, 10);
+    const profileName =
+      typeof req.body?.profile_name === 'string' ? req.body.profile_name.trim() : '';
+    const uptimeLimit =
+      typeof req.body?.uptime_limit === 'string' ? req.body.uptime_limit.trim() : '';
+    const dataLimit =
+      req.body?.data_limit == null ? null : String(req.body.data_limit).trim() || null;
+
+    if (!ownerId || !routerId || !profileName || !uptimeLimit) {
+      return billingFail(res, 400, 'MIKROTIK_ERROR', 'routerhub_router_id, owner_id, profile_name, uptime_limit required');
+    }
+
+    const [routerRows] = await db.query('SELECT * FROM routers WHERE id = ?', [routerId]);
+    if (routerRows.length === 0) return billingFail(res, 404, 'ROUTER_NOT_FOUND', 'Router not found');
+
+    const r = routerRows[0];
+    if (parseInt(r.billing_owner_id, 10) !== ownerId) {
+      return billingFail(res, 403, 'OWNERSHIP_MISMATCH', 'Router does not belong to owner');
+    }
+    if (r.status !== 'online') return billingFail(res, 400, 'ROUTER_OFFLINE', 'Router offline');
+    if (!r.wg_ip) return billingFail(res, 400, 'ROUTER_OFFLINE', 'Router has no wg_ip');
+
+    // Create MikroTik hotspot profile:
+    // Requirement says: session-timeout=uptime_limit; rate-limit if data_limit provided.
+    try {
+      await mikrotikService.createHotspotProfile(r, {
+        profile_name: profileName,
+        shared_users: 1,
+        session_timeout: uptimeLimit, // not used by service, so we set via update below
+        rate_limit: dataLimit || null,
+      });
+      // Ensure the session-timeout matches requested uptime_limit (service defaults to 0s).
+      await mikrotikService.updateHotspotProfile(r, profileName, {
+        session_timeout: uptimeLimit,
+        rate_limit: dataLimit || undefined,
+      });
+    } catch (e) {
+      return billingFail(res, 500, 'MIKROTIK_ERROR', e.message || 'Failed to create profile');
+    }
+
+    return res.json({ success: true, profile_name: profileName, router_id: String(routerId) });
+  } catch (err) {
+    console.error(err);
+    return billingFail(res, 500, 'MIKROTIK_ERROR', 'Failed to create profile');
+  }
+});
+
+/**
+ * POST /api/billing/delete-profile
+ * New billing endpoint (API key required) - uses standardized error format.
+ */
+router.post('/delete-profile', requireBillingApiKeyV2, async (req, res) => {
+  try {
+    const ownerId = parseInt(req.body?.owner_id, 10);
+    const routerId = parseInt(req.body?.routerhub_router_id, 10);
+    const profileName =
+      typeof req.body?.profile_name === 'string' ? req.body.profile_name.trim() : '';
+
+    if (!ownerId || !routerId || !profileName) {
+      return billingFail(res, 400, 'MIKROTIK_ERROR', 'routerhub_router_id, owner_id, profile_name required');
+    }
+
+    const [routerRows] = await db.query('SELECT * FROM routers WHERE id = ?', [routerId]);
+    if (routerRows.length === 0) return billingFail(res, 404, 'ROUTER_NOT_FOUND', 'Router not found');
+    const r = routerRows[0];
+    if (parseInt(r.billing_owner_id, 10) !== ownerId) {
+      return billingFail(res, 403, 'OWNERSHIP_MISMATCH', 'Router does not belong to owner');
+    }
+    if (!r.wg_ip) return billingFail(res, 400, 'ROUTER_OFFLINE', 'Router has no wg_ip');
+
+    try {
+      await mikrotikService.deleteHotspotProfile(r, profileName);
+    } catch (e) {
+      const msg = e.message || 'Failed to delete profile';
+      if (msg.toLowerCase().includes('not found')) {
+        return billingFail(res, 400, 'PROFILE_NOT_FOUND', msg);
+      }
+      return billingFail(res, 500, 'MIKROTIK_ERROR', msg);
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return billingFail(res, 500, 'MIKROTIK_ERROR', 'Failed to delete profile');
   }
 });
 
