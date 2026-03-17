@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
 const billingService = require('../services/billingService');
+const mikrotikService = require('../services/mikrotikService');
 
 const router = express.Router();
 
@@ -69,6 +70,70 @@ router.get('/status-by-owner/:owner_id', requireBillingApiKey, async (req, res) 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch router status' });
+  }
+});
+
+/**
+ * GET /api/billing/active-users-by-owner/:owner_id
+ * For billing server only (API key required). Returns active hotspot users grouped by router.
+ *
+ * Notes:
+ * - RouterHub is the source of truth; billing must not connect to MikroTik.
+ * - owner_id must match RouterHub routers.billing_owner_id.
+ */
+router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req, res) => {
+  try {
+    const ownerId = parseInt(req.params.owner_id, 10);
+    if (!ownerId) return res.status(400).json({ error: 'Invalid owner_id' });
+
+    const [routers] = await db.query(
+      'SELECT id, name, location, status, lan_ip, wg_ip, api_port, username, password FROM routers WHERE billing_owner_id = ? ORDER BY name',
+      [ownerId]
+    );
+
+    const result = [];
+    for (const r of routers) {
+      try {
+        const users = await mikrotikService.getActiveHotspotUsers(r);
+        const normalized = Array.isArray(users)
+          ? users.map((u) => ({
+              username: u.user || u.name || u.username || null,
+              ip: u.address || null,
+              mac: u['mac-address'] || u.mac || null,
+              uptime: u.uptime || null,
+              session_time_left: u['session-time-left'] || null,
+              device_name: u['host-name'] || u['device-name'] || null,
+              raw: u,
+            }))
+          : [];
+
+        result.push({
+          router_id: r.id,
+          name: r.name,
+          location: r.location || null,
+          status: r.status,
+          wg_ip: r.wg_ip,
+          active_users_count: normalized.length,
+          users: normalized,
+        });
+      } catch (e) {
+        result.push({
+          router_id: r.id,
+          name: r.name,
+          location: r.location || null,
+          status: r.status,
+          wg_ip: r.wg_ip,
+          active_users_count: 0,
+          users: [],
+          error: e.message,
+        });
+      }
+    }
+
+    res.json({ owner_id: ownerId, routers: result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch active users' });
   }
 });
 
