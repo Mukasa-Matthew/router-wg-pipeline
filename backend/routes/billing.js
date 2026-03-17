@@ -126,53 +126,61 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
           ),
         ]);
 
-        // Build device-name map from DHCP leases (MAC -> host-name/comment).
-        let leaseMap = null;
-        const leaseCached = DHCP_LEASES_CACHE.get(r.id);
-        if (leaseCached && Date.now() - leaseCached.ts < DHCP_LEASES_CACHE_TTL_MS) {
-          leaseMap = leaseCached.map;
-        } else {
-          try {
-            const leases = await Promise.race([
-              mikrotikService.getDhcpLeasesSlim(r),
-              new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('DHCP leases timed out')), 20000)
-              ),
-            ]);
-            const m = new Map();
-            if (Array.isArray(leases)) {
-              for (const l of leases) {
-                const mac = (l['mac-address'] || '').toLowerCase();
-                if (!mac) continue;
-                const name = l['host-name'] || l.comment || null;
-                if (name) m.set(mac, name);
+        // If there are no active users, avoid additional RouterOS calls (DHCP leases / hotspot users).
+        // This significantly reduces load and avoids some RouterOS API edge-cases (e.g. node-routeros UNKNOWNREPLY).
+        const hasActive = Array.isArray(users) && users.length > 0;
+
+        // Build device-name map from DHCP leases (MAC -> host-name/comment) only when needed.
+        let leaseMap = new Map();
+        if (hasActive) {
+          const leaseCached = DHCP_LEASES_CACHE.get(r.id);
+          if (leaseCached && Date.now() - leaseCached.ts < DHCP_LEASES_CACHE_TTL_MS) {
+            leaseMap = leaseCached.map;
+          } else {
+            try {
+              const leases = await Promise.race([
+                mikrotikService.getDhcpLeasesSlim(r),
+                new Promise((_, reject) =>
+                  setTimeout(() => reject(new Error('DHCP leases timed out')), 20000)
+                ),
+              ]);
+              const m = new Map();
+              if (Array.isArray(leases)) {
+                for (const l of leases) {
+                  const mac = (l['mac-address'] || '').toLowerCase();
+                  if (!mac) continue;
+                  const name = l['host-name'] || l.comment || null;
+                  if (name) m.set(mac, name);
+                }
               }
+              DHCP_LEASES_CACHE.set(r.id, { ts: Date.now(), map: m });
+              leaseMap = m;
+            } catch {
+              leaseMap = new Map();
             }
-            DHCP_LEASES_CACHE.set(r.id, { ts: Date.now(), map: m });
-            leaseMap = m;
-          } catch {
-            leaseMap = new Map();
           }
         }
 
-        // Build username -> limit-uptime map so we can compute time left if needed.
+        // Build username -> limit-uptime map only when needed.
         let limitMap = new Map();
-        try {
-          const hotspotUsers = await Promise.race([
-            mikrotikService.getHotspotUsersSlim(r),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Hotspot user limits timed out')), 20000)
-            ),
-          ]);
-          if (Array.isArray(hotspotUsers)) {
-            for (const hu of hotspotUsers) {
-              const name = hu.name || hu.user || null;
-              const limit = hu['limit-uptime'] || null;
-              if (name) limitMap.set(String(name), limit);
+        if (hasActive) {
+          try {
+            const hotspotUsers = await Promise.race([
+              mikrotikService.getHotspotUsersSlim(r),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Hotspot user limits timed out')), 20000)
+              ),
+            ]);
+            if (Array.isArray(hotspotUsers)) {
+              for (const hu of hotspotUsers) {
+                const name = hu.name || hu.user || null;
+                const limit = hu['limit-uptime'] || null;
+                if (name) limitMap.set(String(name), limit);
+              }
             }
+          } catch {
+            // ignore
           }
-        } catch {
-          // ignore
         }
 
         const normalized = Array.isArray(users)
