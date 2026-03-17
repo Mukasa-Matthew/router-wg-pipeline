@@ -552,16 +552,26 @@ router.get('/profiles-by-router/:routerhub_router_id', requireBillingApiKeyV2, a
     const mapped = Array.isArray(profiles)
       ? profiles
           .map((p) => {
+            console.log('[billing/profiles-by-router] raw profile', p);
             const name = (p.name || p['profile-name'] || '').toString().trim();
             if (!name) return null;
-            const sessionTimeout = p['session-timeout'] || p.sessionTimeout || null;
-            const rateLimit = p['rate-limit'] || p.rateLimit || null;
+
+            // MikroTik uses hyphenated keys
+            const sessionTimeout =
+              p['session-timeout'] ||
+              p['limit-uptime'] || // sometimes stored as limit-uptime
+              null;
+            const rateLimit = p['rate-limit'] || null;
+            const dataLimit =
+              p['address-pool'] ||
+              p['data-limit'] ||
+              null;
 
             return {
               profile_name: name,
               uptime_limit: sessionTimeout || null,
               rate_limit: rateLimit || null,
-              data_limit: null,
+              data_limit: dataLimit,
             };
           })
           .filter(Boolean)
@@ -571,6 +581,114 @@ router.get('/profiles-by-router/:routerhub_router_id', requireBillingApiKeyV2, a
   } catch (err) {
     console.error(err);
     return billingFail(res, 500, 'MIKROTIK_ERROR', 'Failed to fetch profiles');
+  }
+});
+
+/**
+ * POST /api/billing/update-profile
+ * Update hotspot profile settings on MikroTik for a specific router.
+ */
+router.post('/update-profile', requireBillingApiKeyV2, async (req, res) => {
+  try {
+    const routerId = parseInt(req.body?.routerhub_router_id, 10);
+    const ownerId = parseInt(req.body?.owner_id, 10);
+    const profileName =
+      typeof req.body?.profile_name === 'string' ? req.body.profile_name.trim() : '';
+    const newProfileName =
+      typeof req.body?.new_profile_name === 'string'
+        ? req.body.new_profile_name.trim()
+        : '';
+    const uptimeLimit =
+      typeof req.body?.uptime_limit === 'string' && req.body.uptime_limit.trim()
+        ? req.body.uptime_limit.trim()
+        : null;
+    const rateLimit =
+      typeof req.body?.rate_limit === 'string' && req.body.rate_limit.trim()
+        ? req.body.rate_limit.trim()
+        : null;
+    // data_limit is accepted but not currently mapped to a Mikrotik field; reserved for future use.
+    const dataLimit =
+      typeof req.body?.data_limit === 'string' && req.body.data_limit.trim()
+        ? req.body.data_limit.trim()
+        : null;
+
+    if (!routerId || !ownerId || !profileName) {
+      return billingFail(
+        res,
+        400,
+        'MIKROTIK_ERROR',
+        'routerhub_router_id, owner_id, profile_name required'
+      );
+    }
+
+    const [routerRows] = await db.query('SELECT * FROM routers WHERE id = ?', [routerId]);
+    if (routerRows.length === 0) return billingFail(res, 404, 'ROUTER_NOT_FOUND', 'Router not found');
+    const r = routerRows[0];
+
+    if (parseInt(r.billing_owner_id, 10) !== ownerId) {
+      return billingFail(res, 403, 'OWNERSHIP_MISMATCH', 'Router does not belong to owner');
+    }
+    if (!r.wg_ip) return billingFail(res, 400, 'ROUTER_OFFLINE', 'Router has no wg_ip');
+    if (r.status !== 'online') return billingFail(res, 400, 'ROUTER_OFFLINE', 'Router offline');
+
+    // Step 1: update session-timeout and rate-limit using existing service helper.
+    try {
+      const profileData = {};
+      if (uptimeLimit) profileData.session_timeout = uptimeLimit;
+      if (rateLimit) profileData.rate_limit = rateLimit;
+      if (Object.keys(profileData).length > 0) {
+        await mikrotikService.updateHotspotProfile(r, profileName, profileData);
+      }
+    } catch (e) {
+      const msg = e.message || 'Failed to update profile';
+      if (msg.toLowerCase().includes('not found')) {
+        return billingFail(res, 400, 'PROFILE_NOT_FOUND', msg);
+      }
+      return billingFail(res, 500, 'MIKROTIK_ERROR', msg);
+    }
+
+    // Step 2: optional rename if new_profile_name provided and different.
+    if (newProfileName && newProfileName !== profileName) {
+      const conn = await mikrotikService.connect(r);
+      try {
+        const profiles = await conn.write('/ip/hotspot/user/profile/print', [
+          `?name=${profileName}`,
+        ]);
+        if (!profiles || !profiles.length) {
+          return billingFail(
+            res,
+            400,
+            'PROFILE_NOT_FOUND',
+            `Profile ${profileName} not found on router`
+          );
+        }
+        const mikrotikId = profiles[0]['.id'] || profiles[0].id;
+        await conn.write('/ip/hotspot/user/profile/set', [
+          `=.id=${mikrotikId}`,
+          `=name=${newProfileName}`,
+        ]);
+      } catch (e) {
+        const msg = e.message || 'Failed to rename profile';
+        return billingFail(res, 500, 'MIKROTIK_ERROR', msg);
+      } finally {
+        // close underlying socket
+        try {
+          conn.close();
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      profile_name: newProfileName || profileName,
+      router_id: String(routerId),
+      data_limit: dataLimit || null,
+    });
+  } catch (err) {
+    console.error(err);
+    return billingFail(res, 500, 'MIKROTIK_ERROR', 'Failed to update profile');
   }
 });
 
