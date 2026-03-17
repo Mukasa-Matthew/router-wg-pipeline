@@ -6,6 +6,11 @@ const mikrotikService = require('../services/mikrotikService');
 
 const router = express.Router();
 
+// Cache active users briefly to avoid hammering MikroTik from billing UI refreshes.
+// Key: router_id -> { ts: number, payload: { users: [], error?: string } }
+const ACTIVE_USERS_CACHE = new Map();
+const ACTIVE_USERS_CACHE_TTL_MS = 15000;
+
 /**
  * Server-to-server auth: Billing backend calls with this header to get real-time router status.
  * Set BILLING_API_SECRET in RouterHub .env; billing app uses the same value in X-Billing-Api-Key.
@@ -94,10 +99,26 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
     const result = [];
     for (const r of routers) {
       try {
+        const cached = ACTIVE_USERS_CACHE.get(r.id);
+        if (cached && Date.now() - cached.ts < ACTIVE_USERS_CACHE_TTL_MS) {
+          result.push({
+            router_id: r.id,
+            name: r.name,
+            location: r.location || null,
+            status: r.status,
+            wg_ip: r.wg_ip,
+            active_users_count: cached.payload.users.length,
+            users: cached.payload.users,
+            ...(cached.payload.error ? { error: cached.payload.error } : {}),
+            cached: true,
+          });
+          continue;
+        }
+
         const users = await Promise.race([
           mikrotikService.getActiveHotspotUsers(r),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Active users timed out')), 20000)
+            setTimeout(() => reject(new Error('Active users timed out')), 45000)
           ),
         ]);
         const normalized = Array.isArray(users)
@@ -111,6 +132,7 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
             }))
           : [];
 
+        ACTIVE_USERS_CACHE.set(r.id, { ts: Date.now(), payload: { users: normalized } });
         result.push({
           router_id: r.id,
           name: r.name,
@@ -121,6 +143,7 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
           users: normalized,
         });
       } catch (e) {
+        ACTIVE_USERS_CACHE.set(r.id, { ts: Date.now(), payload: { users: [], error: e.message } });
         result.push({
           router_id: r.id,
           name: r.name,
