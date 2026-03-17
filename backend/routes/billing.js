@@ -549,6 +549,29 @@ router.get('/profiles-by-router/:routerhub_router_id', requireBillingApiKeyV2, a
       return billingFail(res, 500, 'MIKROTIK_ERROR', e.message || 'Failed to fetch profiles');
     }
 
+    // Load RouterHub's own hotspot_profiles for this router (validity + price).
+    let dbProfiles = [];
+    try {
+      const [rows] = await db.query(
+        'SELECT profile_name, validity, price FROM hotspot_profiles WHERE router_id = ?',
+        [routerId]
+      );
+      dbProfiles = Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      console.warn(
+        '[billing/profiles-by-router] failed to load hotspot_profiles from DB:',
+        e.message
+      );
+      dbProfiles = [];
+    }
+
+    const dbByName = new Map();
+    for (const p of dbProfiles) {
+      const name = (p.profile_name || '').toString().trim();
+      if (!name) continue;
+      dbByName.set(name, p);
+    }
+
     const mapped = Array.isArray(profiles)
       ? profiles
           .map((p) => {
@@ -557,21 +580,23 @@ router.get('/profiles-by-router/:routerhub_router_id', requireBillingApiKeyV2, a
             if (!name) return null;
 
             // MikroTik uses hyphenated keys
-            const sessionTimeout =
-              p['session-timeout'] ||
-              p['limit-uptime'] || // sometimes stored as limit-uptime
-              null;
             const rateLimit = p['rate-limit'] || null;
             const dataLimit =
               p['address-pool'] ||
               p['data-limit'] ||
               null;
 
+            // Merge in validity/price from RouterHub DB if present
+            const dbRow = dbByName.get(name) || null;
+            const validity = dbRow?.validity || null;
+            const priceUgx = dbRow?.price != null ? Number(dbRow.price) : null;
+
             return {
               profile_name: name,
-              uptime_limit: sessionTimeout || null,
+              uptime_limit: validity || null,
               rate_limit: rateLimit || null,
               data_limit: dataLimit,
+              price_ugx: priceUgx,
             };
           })
           .filter(Boolean)
