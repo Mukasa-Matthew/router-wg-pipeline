@@ -103,6 +103,22 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
     const result = [];
     for (const r of routers) {
       try {
+        // If RouterHub already considers the tunnel/router offline, don't attempt RouterOS API calls.
+        // This keeps the billing UI responsive when routers are down or flapping.
+        if (r.status !== 'online') {
+          result.push({
+            router_id: r.id,
+            name: r.name,
+            location: r.location || null,
+            status: r.status,
+            wg_ip: r.wg_ip,
+            active_users_count: 0,
+            users: [],
+            error: 'Router offline',
+          });
+          continue;
+        }
+
         const cached = ACTIVE_USERS_CACHE.get(r.id);
         if (cached && Date.now() - cached.ts < ACTIVE_USERS_CACHE_TTL_MS) {
           result.push({
@@ -122,7 +138,8 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
         const users = await Promise.race([
           mikrotikService.getActiveHotspotUsersSlim(r),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Active users timed out')), 45000)
+            // Keep response fast for UI. If the RouterOS API hangs/bugs out, fail quickly.
+            setTimeout(() => reject(new Error('Active users timed out')), 12000)
           ),
         ]);
 
@@ -141,7 +158,7 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
               const leases = await Promise.race([
                 mikrotikService.getDhcpLeasesSlim(r),
                 new Promise((_, reject) =>
-                  setTimeout(() => reject(new Error('DHCP leases timed out')), 20000)
+                  setTimeout(() => reject(new Error('DHCP leases timed out')), 8000)
                 ),
               ]);
               const m = new Map();
@@ -168,7 +185,7 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
             const hotspotUsers = await Promise.race([
               mikrotikService.getHotspotUsersSlim(r),
               new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Hotspot user limits timed out')), 20000)
+                setTimeout(() => reject(new Error('Hotspot user limits timed out')), 8000)
               ),
             ]);
             if (Array.isArray(hotspotUsers)) {
