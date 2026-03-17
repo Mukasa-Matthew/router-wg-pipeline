@@ -18,6 +18,15 @@ const mikrotikService = require('./services/mikrotikService');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Prevent the process from crashing on unexpected async errors (e.g. routeros library UNKNOWNREPLY).
+// We log and keep the API running so callers get JSON errors instead of dropped sockets.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+
 // Trust proxy (Apache reverse proxy)
 app.set('trust proxy', 1);
 
