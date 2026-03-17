@@ -39,6 +39,9 @@ async function connect(router) {
     port: router.api_port || 8728,
     timeout: Math.ceil(MIKROTIK_TIMEOUT_MS / 1000),
   });
+  // Prevent unhandled 'error' events from crashing the process/socket.
+  // node-routeros may emit 'error' asynchronously (e.g. UNKNOWNREPLY / socket issues).
+  conn.on('error', () => {});
   await withTimeout(conn.connect());
   return conn;
 }
@@ -48,6 +51,7 @@ async function connect(router) {
  */
 async function connectByIp(ip, username, password, port = 8728) {
   const conn = new RouterOSAPI({ host: ip, user: username, password, port });
+  conn.on('error', () => {});
   await conn.connect();
   return conn;
 }
