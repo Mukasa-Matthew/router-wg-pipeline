@@ -241,7 +241,8 @@ router.get('/:id/test-tunnel', async (req, res) => {
     let mikhmon_added = false;
     if (peer && peer.lastHandshake) {
       minutes_ago = Math.round((Date.now() - peer.lastHandshake.getTime()) / 60000);
-      tunnel_up = minutes_ago < 2;
+      // Align with dashboard/WireGuard page: consider tunnel up if handshake < 3 minutes ago.
+      tunnel_up = minutes_ago < 3;
       last_handshake = peer.lastHandshake.toISOString();
       bytes_sent = peer.bytesSent || 0;
       bytes_received = peer.bytesReceived || 0;
