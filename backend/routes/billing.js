@@ -11,6 +11,10 @@ const router = express.Router();
 const ACTIVE_USERS_CACHE = new Map();
 const ACTIVE_USERS_CACHE_TTL_MS = 15000;
 
+// Cache DHCP leases briefly for device name lookup (MAC -> host-name/comment).
+const DHCP_LEASES_CACHE = new Map(); // router_id -> { ts, map }
+const DHCP_LEASES_CACHE_TTL_MS = 30000;
+
 /**
  * Server-to-server auth: Billing backend calls with this header to get real-time router status.
  * Set BILLING_API_SECRET in RouterHub .env; billing app uses the same value in X-Billing-Api-Key.
@@ -116,20 +120,89 @@ router.get('/active-users-by-owner/:owner_id', requireBillingApiKey, async (req,
         }
 
         const users = await Promise.race([
-          mikrotikService.getActiveHotspotUsers(r),
+          mikrotikService.getActiveHotspotUsersSlim(r),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Active users timed out')), 45000)
           ),
         ]);
+
+        // Build device-name map from DHCP leases (MAC -> host-name/comment).
+        let leaseMap = null;
+        const leaseCached = DHCP_LEASES_CACHE.get(r.id);
+        if (leaseCached && Date.now() - leaseCached.ts < DHCP_LEASES_CACHE_TTL_MS) {
+          leaseMap = leaseCached.map;
+        } else {
+          try {
+            const leases = await Promise.race([
+              mikrotikService.getDhcpLeasesSlim(r),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('DHCP leases timed out')), 20000)
+              ),
+            ]);
+            const m = new Map();
+            if (Array.isArray(leases)) {
+              for (const l of leases) {
+                const mac = (l['mac-address'] || '').toLowerCase();
+                if (!mac) continue;
+                const name = l['host-name'] || l.comment || null;
+                if (name) m.set(mac, name);
+              }
+            }
+            DHCP_LEASES_CACHE.set(r.id, { ts: Date.now(), map: m });
+            leaseMap = m;
+          } catch {
+            leaseMap = new Map();
+          }
+        }
+
+        // Build username -> limit-uptime map so we can compute time left if needed.
+        let limitMap = new Map();
+        try {
+          const hotspotUsers = await Promise.race([
+            mikrotikService.getHotspotUsersSlim(r),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Hotspot user limits timed out')), 20000)
+            ),
+          ]);
+          if (Array.isArray(hotspotUsers)) {
+            for (const hu of hotspotUsers) {
+              const name = hu.name || hu.user || null;
+              const limit = hu['limit-uptime'] || null;
+              if (name) limitMap.set(String(name), limit);
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         const normalized = Array.isArray(users)
-          ? users.map((u) => ({
-              username: u.user || u.name || u.username || null,
-              ip: u.address || null,
-              mac: u['mac-address'] || u.mac || null,
-              uptime: u.uptime || null,
-              session_time_left: u['session-time-left'] || null,
-              device_name: u['host-name'] || u['device-name'] || null,
-            }))
+          ? users.map((u) => {
+              const username = u.user || u.name || u.username || null;
+              const mac = u['mac-address'] || u.mac || null;
+              const macKey = mac ? String(mac).toLowerCase() : '';
+              const deviceName = macKey && leaseMap ? leaseMap.get(macKey) || null : null;
+
+              const sessionTimeLeft = u['session-time-left'] || null;
+              let bundleTimeLeft = sessionTimeLeft;
+              if (!bundleTimeLeft && username) {
+                const limit = limitMap.get(String(username)) || null;
+                const limitSec = mikrotikService.parseRosDurationToSeconds(limit);
+                const upSec = mikrotikService.parseRosDurationToSeconds(u.uptime);
+                if (limitSec != null && upSec != null) {
+                  bundleTimeLeft = mikrotikService.formatSecondsToRosDuration(limitSec - upSec);
+                }
+              }
+
+              return {
+                username,
+                ip: u.address || null,
+                mac,
+                uptime: u.uptime || null,
+                session_time_left: sessionTimeLeft,
+                bundle_time_left: bundleTimeLeft,
+                device_name: deviceName,
+              };
+            })
           : [];
 
         ACTIVE_USERS_CACHE.set(r.id, { ts: Date.now(), payload: { users: normalized } });

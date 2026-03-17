@@ -126,6 +126,115 @@ async function getActiveHotspotUsers(router) {
 }
 
 /**
+ * Get active hotspot users (slim fields only; faster).
+ */
+async function getActiveHotspotUsersSlim(router) {
+  const conn = await connect(router);
+  try {
+    const users = await withTimeout(
+      conn.write('/ip/hotspot/active/print', [
+        '=.proplist=user,address,mac-address,uptime,session-time-left',
+      ])
+    );
+    return users;
+  } finally {
+    conn.close();
+  }
+}
+
+/**
+ * Get DHCP leases (slim) for device name lookup by MAC.
+ * Returns array with mac-address, host-name, comment, address.
+ */
+async function getDhcpLeasesSlim(router) {
+  const conn = await connect(router);
+  try {
+    const leases = await withTimeout(
+      conn.write('/ip/dhcp-server/lease/print', [
+        '=.proplist=mac-address,host-name,comment,address',
+      ])
+    );
+    return leases;
+  } finally {
+    conn.close();
+  }
+}
+
+/**
+ * Get hotspot users (slim) so we can map username -> limit-uptime.
+ */
+async function getHotspotUsersSlim(router) {
+  const conn = await connect(router);
+  try {
+    const users = await withTimeout(
+      conn.write('/ip/hotspot/user/print', ['=.proplist=name,limit-uptime'])
+    );
+    return users;
+  } finally {
+    conn.close();
+  }
+}
+
+function parseRosDurationToSeconds(s) {
+  if (!s || typeof s !== 'string') return null;
+  const str = s.trim().toLowerCase();
+  if (!str) return null;
+
+  // RouterOS durations can include w/d/h/m/s or be like "1d02:03:04"
+  // We'll handle w/d/h/m/s tokens and also hh:mm:ss.
+  let total = 0;
+
+  const tokenRe = /(\d+)\s*(w|d|h|m|s)/g;
+  let m;
+  while ((m = tokenRe.exec(str)) !== null) {
+    const val = parseInt(m[1], 10);
+    const unit = m[2];
+    if (unit === 'w') total += val * 7 * 24 * 3600;
+    if (unit === 'd') total += val * 24 * 3600;
+    if (unit === 'h') total += val * 3600;
+    if (unit === 'm') total += val * 60;
+    if (unit === 's') total += val;
+  }
+  if (total > 0) return total;
+
+  // hh:mm:ss (optionally prefixed by Nd)
+  // Examples: "02:03:04" or "1d02:03:04"
+  const daySplit = str.match(/^(\d+)d(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (daySplit) {
+    const d = parseInt(daySplit[1], 10);
+    const hh = parseInt(daySplit[2], 10);
+    const mm = parseInt(daySplit[3], 10);
+    const ss = parseInt(daySplit[4], 10);
+    return d * 24 * 3600 + hh * 3600 + mm * 60 + ss;
+  }
+  const hms = str.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (hms) {
+    const hh = parseInt(hms[1], 10);
+    const mm = parseInt(hms[2], 10);
+    const ss = parseInt(hms[3], 10);
+    return hh * 3600 + mm * 60 + ss;
+  }
+  return null;
+}
+
+function formatSecondsToRosDuration(seconds) {
+  if (seconds == null || !Number.isFinite(seconds)) return null;
+  let s = Math.max(0, Math.floor(seconds));
+  const d = Math.floor(s / 86400);
+  s -= d * 86400;
+  const h = Math.floor(s / 3600);
+  s -= h * 3600;
+  const m = Math.floor(s / 60);
+  s -= m * 60;
+  const parts = [];
+  if (d) parts.push(`${d}d`);
+  if (h) parts.push(`${h}h`);
+  if (m) parts.push(`${m}m`);
+  parts.push(`${s}s`);
+  return parts.join('');
+}
+
+/**
  * Delete hotspot user from MikroTik by username
  */
 async function deleteHotspotUser(router, username) {
@@ -339,6 +448,11 @@ module.exports = {
   addWireGuardPeer,
   getRouterStats,
   getActiveHotspotUsers,
+  getActiveHotspotUsersSlim,
+  getDhcpLeasesSlim,
+  getHotspotUsersSlim,
+  parseRosDurationToSeconds,
+  formatSecondsToRosDuration,
   rebootRouter,
   generateVouchersOnMikrotik,
   getHotspotProfiles,
