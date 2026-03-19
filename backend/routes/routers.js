@@ -412,6 +412,21 @@ router.post('/:id/reboot', async (req, res) => {
 });
 
 /**
+ * POST /api/routers/:id/enable-webfig-winbox - Enable WebFig and Winbox on MikroTik (bind to 0.0.0.0)
+ * Use when WebFig/Winbox don't work over WireGuard but API does (services may be LAN-only).
+ */
+router.post('/:id/enable-webfig-winbox', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM routers WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Router not found' });
+    await mikrotikService.enableWebfigAndWinbox(rows[0]);
+    res.json({ success: true, message: 'WebFig and Winbox enabled. Try opening them again.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Failed to enable services' });
+  }
+});
+
+/**
  * GET /api/routers/:id/mikhmon-url - MikHmon session URL
  */
 router.get('/:id/mikhmon-url', async (req, res) => {

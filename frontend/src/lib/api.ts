@@ -81,6 +81,10 @@ export const api = {
       }),
     mikhmonUrl: (id: number) =>
       request<{ url: string }>(`/routers/${id}/mikhmon-url`),
+    enableWebfigWinbox: (id: number) =>
+      request<{ success: boolean; message?: string }>(`/routers/${id}/enable-webfig-winbox`, {
+        method: 'POST',
+      }),
     reAddPeer: (id: number) =>
       request<{ success: boolean; message: string }>(`/routers/${id}/re-add-peer`, {
         method: 'POST',

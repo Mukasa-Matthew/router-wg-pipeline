@@ -37,6 +37,7 @@ export function RouterDetailPage() {
   const [stats, setStats] = useState<RouterStats | null>(null);
   const [pendingExport, setPendingExport] = useState<number | null>(null);
   const [mikhmonLoading, setMikhmonLoading] = useState(false);
+  const [enableWebfigLoading, setEnableWebfigLoading] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
   const [billingOwnerId, setBillingOwnerId] = useState<string>('');
@@ -86,6 +87,18 @@ export function RouterDetailPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to get MikHmon URL');
     } finally {
       setMikhmonLoading(false);
+    }
+  }
+
+  async function handleEnableWebfigWinbox() {
+    setEnableWebfigLoading(true);
+    try {
+      await api.routers.enableWebfigWinbox(routerId);
+      toast.success('WebFig and Winbox enabled. Try opening them again.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to enable services');
+    } finally {
+      setEnableWebfigLoading(false);
     }
   }
 
@@ -250,6 +263,15 @@ export function RouterDetailPage() {
             >
               <Link2 className="w-3 h-3" />
               Commands
+            </button>
+            <button
+              onClick={handleEnableWebfigWinbox}
+              disabled={enableWebfigLoading || !isOnline}
+              className="text-xs px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 flex items-center gap-1.5"
+              title="Enable WebFig and Winbox if they don't work over WireGuard"
+            >
+              {enableWebfigLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wifi className="w-3 h-3" />}
+              Fix WebFig/Winbox
             </button>
           </div>
         </div>

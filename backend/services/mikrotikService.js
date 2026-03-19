@@ -354,6 +354,36 @@ async function rebootRouter(router) {
 }
 
 /**
+ * Enable WebFig (www) and Winbox services on MikroTik - bind to all interfaces (0.0.0.0)
+ * Use when WebFig/Winbox work locally but not over WireGuard (services may be bound to LAN only).
+ */
+async function enableWebfigAndWinbox(router) {
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      const services = await conn.write('/ip/service/print');
+      const arr = Array.isArray(services) ? services : [];
+      for (const svc of arr) {
+        const name = (svc.name || svc['service-name'] || '').toLowerCase();
+        if (name === 'www' || name === 'winbox') {
+          const id = svc['.id'] || svc.id;
+          if (id) {
+            await conn.write('/ip/service/set', [
+              `=.id=${id}`,
+              '=disabled=no',
+              '=address=0.0.0.0/0',
+            ]);
+          }
+        }
+      }
+      return { success: true };
+    } finally {
+      conn.close();
+    }
+  });
+}
+
+/**
  * Convert validity string to MikroTik limit-uptime format.
  * e.g. "1d" -> "1d", "6h" -> "6h", "1w" -> "7d"
  */
@@ -572,6 +602,7 @@ module.exports = {
   parseRosDurationToSeconds,
   formatSecondsToRosDuration,
   rebootRouter,
+  enableWebfigAndWinbox,
   generateVouchersOnMikrotik,
   getHotspotProfiles,
   createHotspotProfile,
