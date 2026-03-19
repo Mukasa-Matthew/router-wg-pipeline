@@ -465,6 +465,7 @@ async function updateHotspotProfile(router, profileName, profileData) {
 /**
  * Delete hotspot profile from MikroTik
  * Uses connection queue + retry to avoid UNKNOWNREPLY/UNREGISTEREDTAG from concurrent connections.
+ * If profile is not found on MikroTik, returns success anyway (allows cleaning orphaned DB records).
  */
 async function deleteHotspotProfile(router, profileName) {
   return withRouterLock(router, () =>
@@ -473,7 +474,7 @@ async function deleteHotspotProfile(router, profileName) {
       `?name=${profileName}`,
     ]);
     if (!profiles || !profiles.length) {
-      throw new Error(`Profile ${profileName} not found`);
+      return { success: true, notFoundOnMikrotik: true };
     }
     const mikrotikId = profiles[0]['.id'] || profiles[0].id;
     await conn.write('/ip/hotspot/user/profile/remove', [`=.id=${mikrotikId}`]);

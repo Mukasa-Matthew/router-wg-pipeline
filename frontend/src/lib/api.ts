@@ -106,11 +106,16 @@ export const api = {
           method: 'PUT',
           body: JSON.stringify(data),
         }),
-      delete: (id: number, profileId: number, force?: boolean) =>
-        request<{ success: boolean } | { warning: boolean; message: string; count: number }>(
-          `/routers/${id}/profiles/${profileId}${force ? '?force=true' : ''}`,
+      delete: (id: number, profileId: number, force?: boolean, skipMikrotik?: boolean) => {
+        const params = [];
+        if (force) params.push('force=true');
+        if (skipMikrotik) params.push('skipMikrotik=true');
+        const qs = params.length ? '?' + params.join('&') : '';
+        return request<{ success: boolean } | { warning: boolean; message: string; count: number }>(
+          `/routers/${id}/profiles/${profileId}${qs}`,
           { method: 'DELETE' }
-        ),
+        );
+      },
     },
   },
   vouchers: {

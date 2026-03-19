@@ -660,6 +660,7 @@ router.delete('/:id/profiles/:profileId', async (req, res) => {
   try {
     const { id: routerId, profileId } = req.params;
     const force = req.query.force === 'true';
+    const skipMikrotik = req.query.skipMikrotik === 'true';
 
     const [profileRows] = await db.query(
       'SELECT * FROM hotspot_profiles WHERE id = ? AND router_id = ?',
@@ -684,7 +685,9 @@ router.delete('/:id/profiles/:profileId', async (req, res) => {
     const [routerRows] = await db.query('SELECT * FROM routers WHERE id = ?', [routerId]);
     if (routerRows.length === 0) return res.status(404).json({ error: 'Router not found' });
 
-    await mikrotikService.deleteHotspotProfile(routerRows[0], profile.profile_name);
+    if (!skipMikrotik) {
+      await mikrotikService.deleteHotspotProfile(routerRows[0], profile.profile_name);
+    }
     await db.query('DELETE FROM hotspot_profiles WHERE id = ? AND router_id = ?', [
       profileId,
       routerId,
