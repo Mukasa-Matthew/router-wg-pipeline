@@ -172,79 +172,94 @@ async function addWireGuardPeer(router) {
 
 /**
  * Get router stats (CPU, RAM, uptime)
+ * Uses connection queue to avoid UNREGISTEREDTAG with concurrent operations.
  */
 async function getRouterStats(router) {
-  const conn = await connect(router);
-  try {
-    const [resources] = await conn.write('/system/resource/print');
-    const [identity] = await conn.write('/system/identity/print');
-    return { resources, identity };
-  } finally {
-    conn.close();
-  }
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      const [resources] = await conn.write('/system/resource/print');
+      const [identity] = await conn.write('/system/identity/print');
+      return { resources, identity };
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 /**
  * Get active hotspot users
+ * Uses connection queue to avoid UNREGISTEREDTAG.
  */
 async function getActiveHotspotUsers(router) {
-  const conn = await connect(router);
-  try {
-    const users = await withTimeout(conn.write('/ip/hotspot/active/print'));
-    return users;
-  } finally {
-    conn.close();
-  }
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      const users = await withTimeout(conn.write('/ip/hotspot/active/print'));
+      return users;
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 /**
  * Get active hotspot users (slim fields only; faster).
+ * Uses connection queue to avoid UNREGISTEREDTAG.
  */
 async function getActiveHotspotUsersSlim(router) {
-  const conn = await connect(router);
-  try {
-    const users = await withTimeout(
-      conn.write('/ip/hotspot/active/print', [
-        '=.proplist=user,address,mac-address,uptime,session-time-left',
-      ])
-    );
-    return users;
-  } finally {
-    conn.close();
-  }
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      const users = await withTimeout(
+        conn.write('/ip/hotspot/active/print', [
+          '=.proplist=user,address,mac-address,uptime,session-time-left',
+        ])
+      );
+      return users;
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 /**
  * Get DHCP leases (slim) for device name lookup by MAC.
  * Returns array with mac-address, host-name, comment, address.
+ * Uses connection queue to avoid UNREGISTEREDTAG.
  */
 async function getDhcpLeasesSlim(router) {
-  const conn = await connect(router);
-  try {
-    const leases = await withTimeout(
-      conn.write('/ip/dhcp-server/lease/print', [
-        '=.proplist=mac-address,host-name,comment,address',
-      ])
-    );
-    return leases;
-  } finally {
-    conn.close();
-  }
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      const leases = await withTimeout(
+        conn.write('/ip/dhcp-server/lease/print', [
+          '=.proplist=mac-address,host-name,comment,address',
+        ])
+      );
+      return leases;
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 /**
  * Get hotspot users (slim) so we can map username -> limit-uptime.
+ * Uses connection queue to avoid UNREGISTEREDTAG.
  */
 async function getHotspotUsersSlim(router) {
-  const conn = await connect(router);
-  try {
-    const users = await withTimeout(
-      conn.write('/ip/hotspot/user/print', ['=.proplist=name,limit-uptime'])
-    );
-    return users;
-  } finally {
-    conn.close();
-  }
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      const users = await withTimeout(
+        conn.write('/ip/hotspot/user/print', ['=.proplist=name,limit-uptime'])
+      );
+      return users;
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 function parseRosDurationToSeconds(s) {
@@ -308,10 +323,12 @@ function formatSecondsToRosDuration(seconds) {
 
 /**
  * Delete hotspot user from MikroTik by username
+ * Uses connection queue to avoid UNREGISTEREDTAG.
  */
 async function deleteHotspotUser(router, username) {
-  const conn = await connect(router);
-  try {
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
     const users = await conn.write('/ip/hotspot/user/print', [`?name=${username}`]);
     if (!users || users.length === 0) {
       return { success: true, note: 'Not found on MikroTik' };
@@ -322,18 +339,18 @@ async function deleteHotspotUser(router, username) {
   } finally {
     conn.close();
   }
+  });
 }
 
-/**
- * Reboot router
- */
 async function rebootRouter(router) {
-  const conn = await connect(router);
-  try {
-    await conn.write('/system/reboot');
-  } finally {
-    conn.close();
-  }
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      await conn.write('/system/reboot');
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 /**
@@ -468,6 +485,7 @@ async function deleteHotspotProfile(router, profileName) {
 /**
  * Generate vouchers on MikroTik (hotspot users)
  * ALWAYS sets limit-uptime on each voucher - profiles have session-timeout=0s.
+ * Uses connection queue to avoid UNREGISTEREDTAG.
  */
 async function generateVouchersOnMikrotik(router, profileName, count, prefix = 'v', validity) {
   const limitUptime = validityToUptime(validity);
@@ -475,9 +493,10 @@ async function generateVouchersOnMikrotik(router, profileName, count, prefix = '
     throw new Error(`Invalid validity "${validity}" - must be e.g. 1d, 6h, 1w, 30d`);
   }
 
-  const conn = await connect(router);
-  const vouchers = [];
-  try {
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    const vouchers = [];
+    try {
     for (let i = 0; i < count; i++) {
       const username = `${prefix}${generateRandom(6)}`;
       const params = [
@@ -494,34 +513,54 @@ async function generateVouchersOnMikrotik(router, profileName, count, prefix = '
   } finally {
     conn.close();
   }
+  });
 }
 
 /**
  * Fix profile time settings on MikroTik (session-timeout=0s, keepalive-timeout=none, add-mac-cookie=yes)
+ * Uses connection queue - does print+set in one connection to avoid deadlock.
  */
 async function fixProfileOnMikrotik(router, profileName) {
-  const profiles = await getHotspotProfiles(router);
-  const p = profiles.find((x) => (x.name || x['profile-name']) === profileName);
-  if (!p) throw new Error(`Profile ${profileName} not found on MikroTik`);
-  const mikrotikId = p['.id'] || p.id;
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      const profiles = await conn.write('/ip/hotspot/user/profile/print');
+      const arr = Array.isArray(profiles) ? profiles : [];
+      const p = arr.find((x) => (x.name || x['profile-name']) === profileName);
+      if (!p) throw new Error(`Profile ${profileName} not found on MikroTik`);
+      const mikrotikId = p['.id'] || p.id;
+      await conn.write('/ip/hotspot/user/profile/set', [
+        `=.id=${mikrotikId}`,
+        '=session-timeout=0s',
+        '=keepalive-timeout=none',
+        '=add-mac-cookie=yes',
+      ]);
+      return true;
+    } finally {
+      conn.close();
+    }
+  });
+}
 
-  const conn = await connect(router);
-  try {
-    await conn.write('/ip/hotspot/user/profile/set', [
-      `=.id=${mikrotikId}`,
-      '=session-timeout=0s',
-      '=keepalive-timeout=none',
-      '=add-mac-cookie=yes',
-    ]);
-    return true;
-  } finally {
-    conn.close();
-  }
+/**
+ * Run an operation with a locked MikroTik connection. Use when you need custom API calls.
+ * Ensures only one operation per router at a time (avoids UNREGISTEREDTAG).
+ */
+async function withLockedConnection(router, fn) {
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      return await fn(conn);
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 module.exports = {
   testConnection,
   connect,
+  withLockedConnection,
   addWireGuardInterface,
   addWireGuardPeer,
   getRouterStats,

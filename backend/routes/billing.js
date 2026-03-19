@@ -693,34 +693,23 @@ router.post('/update-profile', requireBillingApiKeyV2, async (req, res) => {
 
     // Step 2: optional rename if new_profile_name provided and different.
     if (newProfileName && newProfileName !== profileName) {
-      const conn = await mikrotikService.connect(r);
       try {
-        const profiles = await conn.write('/ip/hotspot/user/profile/print', [
-          `?name=${profileName}`,
-        ]);
-        if (!profiles || !profiles.length) {
-          return billingFail(
-            res,
-            400,
-            'PROFILE_NOT_FOUND',
-            `Profile ${profileName} not found on router`
-          );
-        }
-        const mikrotikId = profiles[0]['.id'] || profiles[0].id;
-        await conn.write('/ip/hotspot/user/profile/set', [
-          `=.id=${mikrotikId}`,
-          `=name=${newProfileName}`,
-        ]);
+        await mikrotikService.withLockedConnection(r, async (conn) => {
+          const profiles = await conn.write('/ip/hotspot/user/profile/print', [
+            `?name=${profileName}`,
+          ]);
+          if (!profiles || !profiles.length) {
+            throw new Error(`Profile ${profileName} not found on router`);
+          }
+          const mikrotikId = profiles[0]['.id'] || profiles[0].id;
+          await conn.write('/ip/hotspot/user/profile/set', [
+            `=.id=${mikrotikId}`,
+            `=name=${newProfileName}`,
+          ]);
+        });
       } catch (e) {
         const msg = e.message || 'Failed to rename profile';
         return billingFail(res, 500, 'MIKROTIK_ERROR', msg);
-      } finally {
-        // close underlying socket
-        try {
-          conn.close();
-        } catch {
-          // ignore
-        }
       }
     }
 
