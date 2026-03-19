@@ -421,15 +421,12 @@ function generateRandom(length) {
  * Uses connection queue to avoid UNREGISTEREDTAG when billing/dashboard call concurrently.
  */
 async function getHotspotProfiles(router) {
-  return withRouterLock(router, async () => {
-    const conn = await connect(router);
-    try {
+  return withRouterLock(router, () =>
+    withMikrotikRetry(router, async (conn) => {
       const profiles = await conn.write('/ip/hotspot/user/profile/print');
       return Array.isArray(profiles) ? profiles : [];
-    } finally {
-      conn.close();
-    }
-  });
+    })
+  );
 }
 
 /**
@@ -516,7 +513,7 @@ async function deleteHotspotProfile(router, profileName) {
 /**
  * Generate vouchers on MikroTik (hotspot users)
  * ALWAYS sets limit-uptime on each voucher - profiles have session-timeout=0s.
- * Uses connection queue to avoid UNREGISTEREDTAG.
+ * Uses connection queue + retry to handle UNREGISTEREDTAG (flaky MikroTik API).
  */
 async function generateVouchersOnMikrotik(router, profileName, count, prefix = 'v', validity) {
   const limitUptime = validityToUptime(validity);
@@ -524,27 +521,24 @@ async function generateVouchersOnMikrotik(router, profileName, count, prefix = '
     throw new Error(`Invalid validity "${validity}" - must be e.g. 1d, 6h, 1w, 30d`);
   }
 
-  return withRouterLock(router, async () => {
-    const conn = await connect(router);
-    const vouchers = [];
-    try {
-    for (let i = 0; i < count; i++) {
-      const username = `${prefix}${generateRandom(6)}`;
-      const params = [
-        `=name=${username}`,
-        `=password=${username}`,
-        `=profile=${profileName}`,
-        `=comment=${profileName} Voucher`,
-        `=limit-uptime=${limitUptime}`,
-      ];
-      await conn.write('/ip/hotspot/user/add', params);
-      vouchers.push({ username, password: username, profile: profileName });
-    }
-    return vouchers;
-  } finally {
-    conn.close();
-  }
-  });
+  return withRouterLock(router, () =>
+    withMikrotikRetry(router, async (conn) => {
+      const vouchers = [];
+      for (let i = 0; i < count; i++) {
+        const username = `${prefix}${generateRandom(6)}`;
+        const params = [
+          `=name=${username}`,
+          `=password=${username}`,
+          `=profile=${profileName}`,
+          `=comment=${profileName} Voucher`,
+          `=limit-uptime=${limitUptime}`,
+        ];
+        await conn.write('/ip/hotspot/user/add', params);
+        vouchers.push({ username, password: username, profile: profileName });
+      }
+      return vouchers;
+    })
+  );
 }
 
 /**
