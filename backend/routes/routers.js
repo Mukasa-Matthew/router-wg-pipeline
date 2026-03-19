@@ -648,7 +648,8 @@ router.put('/:id/profiles/:profileId', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    const msg = (err && err.message) || String(err) || 'Failed to update profile';
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -691,7 +692,8 @@ router.delete('/:id/profiles/:profileId', async (req, res) => {
     console.log(`[Router ${routerId}] Profile "${profile.profile_name}" deleted`);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    const msg = (err && err.message) || String(err) || 'Failed to delete profile';
+    res.status(500).json({ error: msg });
   }
 });
 

@@ -25,6 +25,56 @@ function withTimeout(promise, ms = MIKROTIK_TIMEOUT_MS) {
   ]);
 }
 
+function isUnknownReplyError(err) {
+  const msg = (err && err.message) ? String(err.message) : String(err);
+  return /UNKNOWNREPLY|unknown.?reply/i.test(msg);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Execute a MikroTik operation with retry on UNKNOWNREPLY.
+ * Closes any existing connection before retry. Max 2 retries, 1s delay.
+ * Throws a clear error if all retries fail (avoids 502 from unhandled errors).
+ */
+async function withMikrotikRetry(router, operation) {
+  const maxAttempts = 3;
+  let lastErr;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let conn = null;
+    try {
+      conn = await connect(router);
+      const result = await operation(conn);
+      return result;
+    } catch (err) {
+      lastErr = err;
+      if (conn) {
+        try {
+          conn.close();
+        } catch (_) {}
+        conn = null;
+      }
+      if (attempt < maxAttempts - 1 && isUnknownReplyError(err)) {
+        await sleep(1000);
+      } else {
+        const msg = isUnknownReplyError(err)
+          ? `MikroTik API error (UNKNOWNREPLY after ${maxAttempts} attempts). Multiple simultaneous connections may conflict. Try again.`
+          : (lastErr && lastErr.message) || String(lastErr);
+        throw new Error(msg);
+      }
+    } finally {
+      if (conn) {
+        try {
+          conn.close();
+        } catch (_) {}
+      }
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * Connect to MikroTik - ALWAYS use wg_ip (WireGuard tunnel IP) for data isolation
  * Routers must have tunnel up to be managed
@@ -340,10 +390,10 @@ async function createHotspotProfile(router, profileData) {
 
 /**
  * Update hotspot profile on MikroTik
+ * Uses retry logic for UNKNOWNREPLY (multiple simultaneous API connections).
  */
 async function updateHotspotProfile(router, profileName, profileData) {
-  const conn = await connect(router);
-  try {
+  return withMikrotikRetry(router, async (conn) => {
     const profiles = await conn.write('/ip/hotspot/user/profile/print', [
       `?name=${profileName}`,
     ]);
@@ -362,17 +412,15 @@ async function updateHotspotProfile(router, profileName, profileData) {
       params.push(`=shared-users=${profileData.shared_users}`);
     await conn.write('/ip/hotspot/user/profile/set', params);
     return { success: true };
-  } finally {
-    conn.close();
-  }
+  });
 }
 
 /**
  * Delete hotspot profile from MikroTik
+ * Uses retry logic for UNKNOWNREPLY (multiple simultaneous API connections).
  */
 async function deleteHotspotProfile(router, profileName) {
-  const conn = await connect(router);
-  try {
+  return withMikrotikRetry(router, async (conn) => {
     const profiles = await conn.write('/ip/hotspot/user/profile/print', [
       `?name=${profileName}`,
     ]);
@@ -382,9 +430,7 @@ async function deleteHotspotProfile(router, profileName) {
     const mikrotikId = profiles[0]['.id'] || profiles[0].id;
     await conn.write('/ip/hotspot/user/profile/remove', [`=.id=${mikrotikId}`]);
     return { success: true };
-  } finally {
-    conn.close();
-  }
+  });
 }
 
 /**
