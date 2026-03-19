@@ -42,12 +42,18 @@ export function RouterDetailPage() {
   const [loadingStats, setLoadingStats] = useState(false);
   const [billingOwnerId, setBillingOwnerId] = useState<string>('');
   const [savingBilling, setSavingBilling] = useState(false);
+  const [webfigTargetPort, setWebfigTargetPort] = useState<string>('');
+  const [savingWebfigPort, setSavingWebfigPort] = useState(false);
 
   const isOnline = tunnelStatus?.tunnel_up ?? router.status === 'online';
 
   useEffect(() => {
     setBillingOwnerId(router.billing_owner_id != null ? String(router.billing_owner_id) : '');
   }, [router.billing_owner_id]);
+
+  useEffect(() => {
+    setWebfigTargetPort(router.webfig_target_port != null ? String(router.webfig_target_port) : '80');
+  }, [router.webfig_target_port]);
 
   useEffect(() => {
     if (!routerId) return;
@@ -87,6 +93,24 @@ export function RouterDetailPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to get MikHmon URL');
     } finally {
       setMikhmonLoading(false);
+    }
+  }
+
+  async function saveWebfigTargetPort() {
+    setSavingWebfigPort(true);
+    try {
+      const val = parseInt(webfigTargetPort, 10);
+      if (isNaN(val) || val < 1 || val > 65535) {
+        toast.error('Port must be 1–65535');
+        return;
+      }
+      await api.routers.update(routerId, { webfig_target_port: val });
+      toast.success(`WebFig port set to ${val}. For existing proxies, update Apache config on VPS.`);
+      await refreshRouter?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingWebfigPort(false);
     }
   }
 
@@ -180,6 +204,32 @@ export function RouterDetailPage() {
             </div>
             <p className="text-xs text-navy-500 mt-2">
               Use the billing numeric owner id (same as billing users.hotspot_owner_id). This controls what the owner sees in billing “My Routers”.
+            </p>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-navy-200">
+            <label className="block text-sm font-medium text-navy-600 mb-2">WebFig port (MikroTik www)</label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                min={1}
+                max={65535}
+                placeholder="80"
+                value={webfigTargetPort}
+                onChange={(e) => setWebfigTargetPort(e.target.value)}
+                className="w-24 px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50 text-navy-900 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+              />
+              <button
+                type="button"
+                onClick={saveWebfigTargetPort}
+                disabled={savingWebfigPort}
+                className="px-4 py-2.5 rounded-xl btn-primary disabled:opacity-60"
+              >
+                {savingWebfigPort ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+              </button>
+            </div>
+            <p className="text-xs text-navy-500 mt-2">
+              MikroTik www service port (default 80). Use 85 if your router uses port 85. New proxies use this; existing ones need Apache config update on VPS.
             </p>
           </div>
         </div>

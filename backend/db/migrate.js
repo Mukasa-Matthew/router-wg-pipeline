@@ -127,6 +127,13 @@ async function migrate() {
       console.log('Skip: Conference WiFi winbox port update (id=1 may not exist)');
     }
 
+    await run('ALTER TABLE routers ADD COLUMN webfig_target_port INT DEFAULT 80 AFTER webfig_port', true);
+    try {
+      const [res] = await conn.query('UPDATE routers SET webfig_target_port = 85 WHERE id = 1');
+      if (res && res.affectedRows > 0) console.log('OK: Conference WiFi (id=1) set to webfig_target_port 85');
+    } catch (e) {
+      console.log('Skip: Conference webfig_target_port update');
+    }
     await run('ALTER TABLE routers ADD COLUMN billing_owner_id INT NULL AFTER notes', true);
     await run('ALTER TABLE routers ADD COLUMN billing_router_id INT NULL AFTER billing_owner_id', true);
     await run('ALTER TABLE routers ADD COLUMN billing_hotspot_key VARCHAR(50) NULL AFTER billing_router_id', true);

@@ -66,7 +66,7 @@ export const api = {
         body: JSON.stringify(data),
       }),
     progressUrl: (jobId: string) => `${API_BASE}/routers/add-progress/${jobId}`,
-    update: (id: number, data: Partial<AddRouterData>) =>
+    update: (id: number, data: UpdateRouterData) =>
       request<{ success: boolean }>(`/routers/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
@@ -196,6 +196,7 @@ export interface Router {
   wg_ip: string | null;
   webfig_port?: number | null;
   webfig_url?: string | null;
+  webfig_target_port?: number | null;
   winbox_port?: number | null;
   winbox_url?: string | null;
   status: 'online' | 'offline' | 'tunnel_failed';
@@ -223,6 +224,11 @@ export interface AddRouterData {
   /** Billing hotspot key (e.g. hs_xxxxxxxx) for display/linking */
   billing_hotspot_key?: string | null;
 }
+
+/** Fields that can be updated on an existing router */
+export type UpdateRouterData = Partial<AddRouterData> & {
+  webfig_target_port?: number | null;
+};
 
 export interface BillingOwner {
   id: number;

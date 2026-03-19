@@ -139,7 +139,7 @@ async function checkAllRoutersStatus() {
   const tunnelStatuses = await wireguardService.getTunnelStatus();
   const now = Date.now();
 
-  const [routers] = await db.query('SELECT id, wg_ip, webfig_port, winbox_port FROM routers WHERE wg_ip IS NOT NULL');
+  const [routers] = await db.query('SELECT id, wg_ip, webfig_port, webfig_target_port, winbox_port FROM routers WHERE wg_ip IS NOT NULL');
 
   for (const r of routers) {
     const target = r.wg_ip + '/32';
@@ -161,7 +161,7 @@ async function checkAllRoutersStatus() {
     if (status === 'online' && !r.webfig_port) {
       try {
         const port = await wireguardService.getNextWebfigPort();
-        await wireguardService.createWebfigProxy(r.wg_ip, port);
+        await wireguardService.createWebfigProxy(r, port);
         await db.query('UPDATE routers SET webfig_port = ? WHERE id = ?', [port, r.id]);
         console.log(`[Router ${r.id}] WebFig proxy created on port ${port}`);
       } catch (err) {
