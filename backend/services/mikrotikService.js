@@ -30,12 +30,34 @@ function isUnknownReplyError(err) {
   return /UNKNOWNREPLY|unknown.?reply/i.test(msg);
 }
 
+function isTagOrReplyError(err) {
+  const msg = (err && err.message) ? String(err.message) : String(err);
+  return /UNKNOWNREPLY|UNREGISTEREDTAG|unknown.?reply|unregistered.?tag/i.test(msg);
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Per-router connection queue: only one MikroTik API operation at a time per router. */
+const routerLocks = new Map();
+
+async function withRouterLock(router, fn) {
+  const key = router.wg_ip || router.lan_ip || `router-${router.id}`;
+  const prev = routerLocks.get(key) || Promise.resolve();
+  let release;
+  const done = new Promise((r) => { release = r; });
+  routerLocks.set(key, prev.then(() => done));
+  try {
+    await prev;
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
 /**
- * Execute a MikroTik operation with retry on UNKNOWNREPLY.
+ * Execute a MikroTik operation with retry on UNKNOWNREPLY/UNREGISTEREDTAG.
  * Closes any existing connection before retry. Max 2 retries, 1s delay.
  * Throws a clear error if all retries fail (avoids 502 from unhandled errors).
  */
@@ -56,11 +78,11 @@ async function withMikrotikRetry(router, operation) {
         } catch (_) {}
         conn = null;
       }
-      if (attempt < maxAttempts - 1 && isUnknownReplyError(err)) {
+      if (attempt < maxAttempts - 1 && isTagOrReplyError(err)) {
         await sleep(1000);
       } else {
-        const msg = isUnknownReplyError(err)
-          ? `MikroTik API error (UNKNOWNREPLY after ${maxAttempts} attempts). Multiple simultaneous connections may conflict. Try again.`
+        const msg = isTagOrReplyError(err)
+          ? `MikroTik API error after ${maxAttempts} attempts (multiple connections may conflict). Try again.`
           : (lastErr && lastErr.message) || String(lastErr);
         throw new Error(msg);
       }
@@ -349,25 +371,30 @@ function generateRandom(length) {
 
 /**
  * Get hotspot profiles from MikroTik
+ * Uses connection queue to avoid UNREGISTEREDTAG when billing/dashboard call concurrently.
  */
 async function getHotspotProfiles(router) {
-  const conn = await connect(router);
-  try {
-    const profiles = await conn.write('/ip/hotspot/user/profile/print');
-    return Array.isArray(profiles) ? profiles : [];
-  } finally {
-    conn.close();
-  }
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      const profiles = await conn.write('/ip/hotspot/user/profile/print');
+      return Array.isArray(profiles) ? profiles : [];
+    } finally {
+      conn.close();
+    }
+  });
 }
 
 /**
  * Create hotspot profile on MikroTik
  * Profiles have session-timeout=0s so they never control time.
  * All time control comes from limit-uptime on each voucher.
+ * Uses connection queue to avoid UNREGISTEREDTAG.
  */
 async function createHotspotProfile(router, profileData) {
-  const conn = await connect(router);
-  try {
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
     const params = [
       `=name=${profileData.profile_name}`,
       `=shared-users=${profileData.shared_users || 1}`,
@@ -386,14 +413,16 @@ async function createHotspotProfile(router, profileData) {
   } finally {
     conn.close();
   }
+  });
 }
 
 /**
  * Update hotspot profile on MikroTik
- * Uses retry logic for UNKNOWNREPLY (multiple simultaneous API connections).
+ * Uses connection queue + retry to avoid UNKNOWNREPLY/UNREGISTEREDTAG from concurrent connections.
  */
 async function updateHotspotProfile(router, profileName, profileData) {
-  return withMikrotikRetry(router, async (conn) => {
+  return withRouterLock(router, () =>
+    withMikrotikRetry(router, async (conn) => {
     const profiles = await conn.write('/ip/hotspot/user/profile/print', [
       `?name=${profileName}`,
     ]);
@@ -412,15 +441,17 @@ async function updateHotspotProfile(router, profileName, profileData) {
       params.push(`=shared-users=${profileData.shared_users}`);
     await conn.write('/ip/hotspot/user/profile/set', params);
     return { success: true };
-  });
+  })
+  );
 }
 
 /**
  * Delete hotspot profile from MikroTik
- * Uses retry logic for UNKNOWNREPLY (multiple simultaneous API connections).
+ * Uses connection queue + retry to avoid UNKNOWNREPLY/UNREGISTEREDTAG from concurrent connections.
  */
 async function deleteHotspotProfile(router, profileName) {
-  return withMikrotikRetry(router, async (conn) => {
+  return withRouterLock(router, () =>
+    withMikrotikRetry(router, async (conn) => {
     const profiles = await conn.write('/ip/hotspot/user/profile/print', [
       `?name=${profileName}`,
     ]);
@@ -430,7 +461,8 @@ async function deleteHotspotProfile(router, profileName) {
     const mikrotikId = profiles[0]['.id'] || profiles[0].id;
     await conn.write('/ip/hotspot/user/profile/remove', [`=.id=${mikrotikId}`]);
     return { success: true };
-  });
+  })
+  );
 }
 
 /**
