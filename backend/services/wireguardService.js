@@ -162,9 +162,10 @@ async function getNextWebfigPort() {
 
 /**
  * Create Apache virtual host to proxy WebFig for a router
- * WebFig runs on MikroTik port 8291 (Winbox) or 80/443 - typically 80 for web
- * MikroTik WebFig uses port 80 or 8291. User spec says port 85.
+ * MikroTik WebFig (www service) defaults to port 80. Use WG_WEBFIG_PORT env to override.
  */
+const WEBFIG_TARGET_PORT = parseInt(process.env.WG_WEBFIG_PORT || '80', 10);
+
 async function createWebfigProxy(wgIp, port) {
   if (!isLinux) {
     console.warn('WebFig proxy creation skipped (not Linux)');
@@ -174,8 +175,8 @@ async function createWebfigProxy(wgIp, port) {
 Listen ${port}
 <VirtualHost *:${port}>
     ProxyPreserveHost Off
-    ProxyPass / http://${wgIp}:85/
-    ProxyPassReverse / http://${wgIp}:85/
+    ProxyPass / http://${wgIp}:${WEBFIG_TARGET_PORT}/
+    ProxyPassReverse / http://${wgIp}:${WEBFIG_TARGET_PORT}/
 </VirtualHost>
 `;
   const tmpPath = path.join(os.tmpdir(), `webfig-${port}.conf`);
