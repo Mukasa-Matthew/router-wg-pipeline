@@ -12,6 +12,21 @@ index 769f027..4618f14 100644
                  if (!this.trapped)
                      this.emit('done', this.data);
                  this.close();
+diff --git a/node_modules/node-routeros/dist/connector/Receiver.js b/node_modules/node-routeros/dist/connector/Receiver.js
+index f24ecaa..677b7a2 100644
+--- a/node_modules/node-routeros/dist/connector/Receiver.js
++++ b/node_modules/node-routeros/dist/connector/Receiver.js
+@@ -248,7 +248,9 @@ class Receiver {
+             tag.callback(this.currentPacket);
+         }
+         else {
+-            throw new RosException_1.RosException('UNREGISTEREDTAG');
++            // Stale/duplicate response for already-closed tag - log and continue to avoid uncaught exception.
++            // Common when multiple channels share a connection or router sends out-of-order replies.
++            error('Received data on unregistered tag %s (stale/duplicate response), ignoring', currentTag);
+         }
+         this.cleanUp();
+     }
 diff --git a/node_modules/node-routeros/tsconfig.json b/node_modules/node-routeros/tsconfig.json
 index 3ef7a24..fcca76b 100644
 --- a/node_modules/node-routeros/tsconfig.json
