@@ -49,7 +49,8 @@ function generateReportPdf(routerName, location, fromDate, toDate, history, opti
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    const metricLabel = options.hotspotEnabled !== false ? 'Users logged in' : 'Devices on network';
+    const hotspotOnLabel = 'Hotspot ON: Users (voucher)';
+    const hotspotOffLabel = 'Hotspot OFF: Devices (DHCP)';
 
     // Header
     doc.fontSize(18).font('Helvetica-Bold').text('Connection Trend Report', { align: 'center' });
@@ -58,7 +59,13 @@ function generateReportPdf(routerName, location, fromDate, toDate, history, opti
     if (location) doc.text(location, { align: 'center' });
     doc.moveDown(0.5);
     doc.fontSize(10).fillColor('#666666').text(`Period: ${fromDate} to ${toDate}`, { align: 'center' });
-    doc.moveDown(1).fillColor('#000000');
+    doc.moveDown(0.8).fillColor('#000000');
+
+    // Legend
+    doc.fontSize(9).font('Helvetica');
+    doc.text('• Hotspot ON = voucher users currently logged in', 50, doc.y);
+    doc.text('• Hotspot OFF = DHCP devices on network (target market size)', 50, doc.y + 12);
+    doc.moveDown(1);
 
     // Summary stats
     if (history.length > 0) {
@@ -66,13 +73,17 @@ function generateReportPdf(routerName, location, fromDate, toDate, history, opti
       const max = Math.max(...counts);
       const min = Math.min(...counts);
       const avg = Math.round(counts.reduce((a, b) => a + b, 0) / counts.length);
+      const hotspotOnRows = history.filter((h) => h.hotspot_enabled);
+      const hotspotOffRows = history.filter((h) => !h.hotspot_enabled);
 
       doc.fontSize(11).font('Helvetica-Bold').text('Summary', 50, doc.y);
       doc.moveDown(0.3);
       doc.font('Helvetica').fontSize(10);
       doc.text(`Data points: ${history.length}`);
-      doc.text(`Peak ${metricLabel}: ${max}`);
-      doc.text(`Lowest: ${min}`);
+      if (hotspotOnRows.length > 0) doc.text(`Peak (hotspot ON): ${Math.max(...hotspotOnRows.map((h) => h.connection_count))} users`);
+      if (hotspotOffRows.length > 0) doc.text(`Peak (hotspot OFF): ${Math.max(...hotspotOffRows.map((h) => h.connection_count))} devices`);
+      doc.text(`Overall max: ${max}`);
+      doc.text(`Overall min: ${min}`);
       doc.text(`Average: ${avg}`);
       doc.moveDown(1);
     }
@@ -84,10 +95,10 @@ function generateReportPdf(routerName, location, fromDate, toDate, history, opti
 
     const col1 = 50;
     const col2 = 200;
-    const col3 = 350;
+    const col3 = 480;
 
     doc.text('Date & Time', col1, doc.y);
-    doc.text('Metric', col2, doc.y);
+    doc.text('Hotspot State', col2, doc.y);
     doc.text('Count', col3, doc.y);
     doc.moveDown(0.3);
     doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
@@ -96,11 +107,11 @@ function generateReportPdf(routerName, location, fromDate, toDate, history, opti
     for (const row of history) {
       const d = new Date(row.recorded_at);
       const dateStr = d.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
-      const typeStr = row.hotspot_enabled ? 'Users' : 'Devices';
+      const stateStr = row.hotspot_enabled ? hotspotOnLabel : hotspotOffLabel;
       doc.text(dateStr, col1, doc.y);
-      doc.text(typeStr, col2, doc.y);
+      doc.text(stateStr, col2, doc.y, { width: 270 });
       doc.text(String(row.connection_count), col3, doc.y);
-      doc.moveDown(0.25);
+      doc.moveDown(0.35);
 
       if (doc.y > 700) {
         doc.addPage();
