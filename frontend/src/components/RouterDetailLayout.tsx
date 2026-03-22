@@ -1,5 +1,5 @@
 import { useParams, useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { ArrowLeft, Wifi, FileText, Link2, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowLeft, Wifi, FileText, Link2, ExternalLink, Loader2, Pencil, X, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { api, type Router, type TunnelStatus } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
@@ -23,6 +23,9 @@ export function RouterDetailLayout() {
   const [mikhmonLoading, setMikhmonLoading] = useState(false);
   const [voucherOpen, setVoucherOpen] = useState(false);
   const [voucherRefreshTrigger, setVoucherRefreshTrigger] = useState(0);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
     if (!routerId) return;
@@ -44,6 +47,35 @@ export function RouterDetailLayout() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function saveRouterName() {
+    const name = nameInput.trim();
+    if (!name) {
+      toast.error('Router name cannot be empty');
+      return;
+    }
+    setSavingName(true);
+    try {
+      await api.routers.update(routerId, { name });
+      toast.success('Router name updated');
+      setEditingName(false);
+      await refreshRouter();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save name');
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  function startEditName() {
+    setNameInput(router?.name || '');
+    setEditingName(true);
+  }
+
+  function cancelEditName() {
+    setEditingName(false);
+    setNameInput('');
   }
 
   async function openMikHmon() {
@@ -84,7 +116,55 @@ export function RouterDetailLayout() {
         Back to Routers
       </button>
 
-      <h1 className="font-display font-semibold text-xl sm:text-display-lg text-navy-900 mb-1 tracking-tight break-words">{router.name}</h1>
+      <div className="mb-1 flex flex-wrap items-center gap-2">
+        {editingName ? (
+          <>
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="Router name"
+              className="flex-1 min-w-[180px] px-4 py-2 rounded-xl border border-navy-200 bg-white text-navy-900 font-display font-semibold text-xl sm:text-display-lg focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveRouterName();
+                if (e.key === 'Escape') cancelEditName();
+              }}
+            />
+            <button
+              type="button"
+              onClick={saveRouterName}
+              disabled={savingName || !nameInput.trim() || nameInput.trim() === (router?.name || '')}
+              className="p-2 rounded-lg bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50"
+              aria-label="Save name"
+            >
+              {savingName ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+            </button>
+            <button
+              type="button"
+              onClick={cancelEditName}
+              disabled={savingName}
+              className="p-2 rounded-lg bg-navy-100 text-navy-600 hover:bg-navy-200"
+              aria-label="Cancel"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </>
+        ) : (
+          <>
+            <h1 className="font-display font-semibold text-xl sm:text-display-lg text-navy-900 tracking-tight break-words">{router.name}</h1>
+            <button
+              type="button"
+              onClick={startEditName}
+              className="p-1.5 rounded-lg text-navy-400 hover:text-primary-600 hover:bg-primary-50 transition"
+              aria-label="Edit router name"
+              title="Edit name"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          </>
+        )}
+      </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4 sm:mb-6 text-body text-navy-500">
         <span>{router.location || router.wg_ip || 'Router details'}</span>
         <span className="text-caption">

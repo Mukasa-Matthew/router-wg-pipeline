@@ -53,9 +53,6 @@ export function RouterDetailPage() {
     return d.toISOString().slice(0, 10);
   });
   const [reportTo, setReportTo] = useState(() => new Date().toISOString().slice(0, 10));
-  const [routerName, setRouterName] = useState('');
-  const [savingName, setSavingName] = useState(false);
-
   const isOnline = tunnelStatus?.tunnel_up ?? router.status === 'online';
 
   async function runDiagnose() {
@@ -90,10 +87,6 @@ export function RouterDetailPage() {
       setReportLoading(false);
     }
   }
-
-  useEffect(() => {
-    setRouterName(router.name || '');
-  }, [router.name]);
 
   useEffect(() => {
     setBillingOwnerId(router.billing_owner_id != null ? String(router.billing_owner_id) : '');
@@ -183,24 +176,6 @@ export function RouterDetailPage() {
     }
   }
 
-  async function saveRouterName() {
-    const name = routerName.trim();
-    if (!name) {
-      toast.error('Router name cannot be empty');
-      return;
-    }
-    setSavingName(true);
-    try {
-      await api.routers.update(routerId, { name });
-      toast.success('Router name updated');
-      await refreshRouter?.();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save name');
-    } finally {
-      setSavingName(false);
-    }
-  }
-
   async function saveBillingOwner() {
     setSavingBilling(true);
     try {
@@ -229,26 +204,6 @@ export function RouterDetailPage() {
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-navy-200/80 bg-white p-4 sm:p-6 shadow-card">
           <h3 className="text-label text-navy-500 mb-3">Router Info</h3>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-navy-600 mb-2">Name</label>
-            <div className="flex gap-2 items-center">
-              <input
-                type="text"
-                value={routerName}
-                onChange={(e) => setRouterName(e.target.value)}
-                placeholder="Router name"
-                className="flex-1 px-4 py-2.5 rounded-xl border border-navy-200 bg-navy-50/50 text-navy-900 focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-              />
-              <button
-                type="button"
-                onClick={saveRouterName}
-                disabled={savingName || routerName.trim() === (router.name || '')}
-                className="px-4 py-2.5 rounded-xl btn-primary disabled:opacity-60"
-              >
-                {savingName ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
-              </button>
-            </div>
-          </div>
           <dl className="space-y-2 text-sm">
             <div>
               <dt className="text-navy-500">Location</dt>
