@@ -163,6 +163,37 @@ function removeMikHmonSession(routerId, routerName) {
 }
 
 /**
+ * Update hotspot-name in MikHmon session when router name changes.
+ * Finds the session block for this routerId (session keys end with "-{routerId}") and updates '4'=>'hotspot-name%...'.
+ * This affects what shows on the MikHmon/voucher captive portal login page.
+ */
+function updateMikHmonHotspotNameBySession(routerId, newName) {
+  if (process.platform === 'win32') return;
+  const configPath = getConfigPath();
+  if (!fs.existsSync(configPath)) return;
+  if (!newName || typeof newName !== 'string' || !newName.trim()) return;
+
+  const escapedHotspotName = newName.trim().replace(/'/g, "\\'");
+  const idSuffix = `-${routerId}'`;
+
+  try {
+    let config = fs.readFileSync(configPath, 'utf8');
+    const blockRegex = new RegExp(
+      `(\\$data\\['[a-z0-9-]*${idSuffix}\\s*=\\s*array\\s*\\([\\s\\S]*?)'4'=>'hotspot-name%[^']*'([\\s\\S]*?\\);\\s*)`,
+      'g'
+    );
+    const newConfig = config.replace(blockRegex, `$1'4'=>'hotspot-name%${escapedHotspotName}'$2`);
+    if (newConfig !== config) {
+      backupConfig();
+      fs.writeFileSync(configPath, newConfig);
+      console.log(`[MikHmon] Updated hotspot name for router ${routerId} to "${newName.trim()}"`);
+    }
+  } catch (err) {
+    console.error('[MikHmon] updateMikHmonHotspotNameBySession failed:', err.message);
+  }
+}
+
+/**
  * Get MikHmon URL for router session
  */
 function getMikHmonUrl(routerId, routerName) {
@@ -177,4 +208,5 @@ module.exports = {
   getMikHmonUrl,
   getSessionName,
   sessionExists,
+  updateMikHmonHotspotNameBySession,
 };

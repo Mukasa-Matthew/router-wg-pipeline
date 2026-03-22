@@ -623,6 +623,35 @@ async function withLockedConnection(router, fn) {
   });
 }
 
+/**
+ * Set hotspot server name on MikroTik (shows on default captive portal login page).
+ * Updates the first hotspot server found. Best-effort: logs and returns on failure.
+ */
+async function setHotspotName(router, newName) {
+  if (!newName || typeof newName !== 'string' || !newName.trim()) return;
+  const name = newName.trim();
+  try {
+    await withRouterLock(router, async () => {
+      const conn = await connect(router);
+      try {
+        const hotspots = await withTimeout(conn.write('/ip/hotspot/print', ['=.proplist=.id,name']));
+        const arr = Array.isArray(hotspots) ? hotspots : [];
+        if (arr.length === 0) {
+          console.log(`[Router ${router.id}] No hotspot server found, skipping name sync`);
+          return;
+        }
+        const id = arr[0]['.id'] || arr[0].id;
+        await conn.write('/ip/hotspot/set', [`=.id=${id}`, `=name=${name}`]);
+        console.log(`[Router ${router.id}] Hotspot name set to "${name}"`);
+      } finally {
+        conn.close();
+      }
+    });
+  } catch (err) {
+    console.warn(`[Router ${router.id}] Failed to set hotspot name:`, err?.message || err);
+  }
+}
+
 module.exports = {
   testConnection,
   connect,
@@ -648,4 +677,5 @@ module.exports = {
   fixProfileOnMikrotik,
   validityToUptime,
   formatMikrotikConnectionError,
+  setHotspotName,
 };

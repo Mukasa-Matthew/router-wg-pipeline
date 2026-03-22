@@ -327,6 +327,14 @@ router.put('/:id', async (req, res) => {
     if (Object.keys(filtered).length === 0) return res.status(400).json({ error: 'No fields to update' });
 
     await db.query('UPDATE routers SET ? WHERE id = ?', [filtered, req.params.id]);
+
+    if (filtered.name) {
+      const [rows] = await db.query('SELECT * FROM routers WHERE id = ?', [req.params.id]);
+      const r = rows[0];
+      mikrotikService.setHotspotName(r, filtered.name);
+      mikhmonService.updateMikHmonHotspotNameBySession(parseInt(req.params.id, 10), filtered.name);
+    }
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update router' });
