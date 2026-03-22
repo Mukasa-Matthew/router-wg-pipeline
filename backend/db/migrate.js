@@ -137,6 +137,22 @@ async function migrate() {
     await run('ALTER TABLE routers ADD COLUMN billing_owner_id INT NULL AFTER notes', true);
     await run('ALTER TABLE routers ADD COLUMN billing_router_id INT NULL AFTER billing_owner_id', true);
     await run('ALTER TABLE routers ADD COLUMN billing_hotspot_key VARCHAR(50) NULL AFTER billing_router_id', true);
+
+    // Connection snapshots for trend reports (hotspot users or DHCP count over time)
+    await run(
+      `CREATE TABLE IF NOT EXISTS router_connection_snapshots (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        router_id INT NOT NULL,
+        recorded_at DATETIME NOT NULL,
+        hotspot_enabled TINYINT NOT NULL DEFAULT 1,
+        connection_count INT NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (router_id) REFERENCES routers(id) ON DELETE CASCADE,
+        INDEX idx_router_recorded (router_id, recorded_at)
+      )`,
+      true
+    );
+
     await addIndexes(conn);
     console.log('Migration complete.');
   } finally {

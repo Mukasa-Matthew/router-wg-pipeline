@@ -14,6 +14,7 @@ const billingRoutes = require('./routes/billing');
 const { checkAllRoutersStatus } = require('./services/routerController');
 const db = require('./config/database');
 const mikrotikService = require('./services/mikrotikService');
+const connectionReportService = require('./services/connectionReportService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -128,6 +129,23 @@ async function refreshAllRouterStats() {
 const STATS_INTERVAL = 5 * 60 * 1000;
 setInterval(refreshAllRouterStats, STATS_INTERVAL);
 setTimeout(refreshAllRouterStats, 10000); // First run after 10s
+
+// Connection snapshots for trend reports (every 15 min)
+async function recordConnectionSnapshots() {
+  try {
+    const [routers] = await db.query(
+      "SELECT * FROM routers WHERE status = 'online' AND wg_ip IS NOT NULL"
+    );
+    for (const r of routers) {
+      await connectionReportService.recordSnapshot(r).catch(() => {});
+    }
+  } catch (err) {
+    console.error('Connection snapshot error:', err.message);
+  }
+}
+const SNAPSHOT_INTERVAL = 15 * 60 * 1000;
+setInterval(recordConnectionSnapshots, SNAPSHOT_INTERVAL);
+setTimeout(recordConnectionSnapshots, 60000); // First run after 1 min
 
 app.listen(PORT, () => {
   console.log(`RouterHub API running on http://localhost:${PORT}`);

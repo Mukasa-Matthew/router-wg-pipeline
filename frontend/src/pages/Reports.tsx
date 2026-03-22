@@ -33,7 +33,7 @@ export function Reports() {
     <div className="animate-fade-in">
       <PageHeader
         title="Reports"
-        subtitle="Revenue and voucher statistics across routers"
+        subtitle="Revenue, voucher statistics, and connection trend PDFs per router"
       />
 
       <div className="grid gap-5 mb-8 sm:grid-cols-2 lg:grid-cols-3">
@@ -74,6 +74,12 @@ export function Reports() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mb-6 rounded-xl border border-slate-200 bg-primary-50/30 p-4">
+        <p className="text-sm text-slate-700">
+          <strong>Connection trend reports:</strong> Open any router → Overview tab → download a PDF showing users/devices connected over time. Data is recorded every 15 minutes.
+        </p>
       </div>
 
       {revenue.length === 0 ? (

@@ -14,6 +14,7 @@ import {
   Key,
   User,
   AlertCircle,
+  FileDown,
 } from 'lucide-react';
 import { api, type Router, type TunnelStatus, type HotspotProfile, type RouterStats, type ConnectionStats } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
@@ -44,8 +45,32 @@ export function RouterDetailPage() {
   const [savingBilling, setSavingBilling] = useState(false);
   const [webfigTargetPort, setWebfigTargetPort] = useState<string>('');
   const [savingWebfigPort, setSavingWebfigPort] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportFrom, setReportFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [reportTo, setReportTo] = useState(() => new Date().toISOString().slice(0, 10));
 
   const isOnline = tunnelStatus?.tunnel_up ?? router.status === 'online';
+
+  async function downloadReport() {
+    setReportLoading(true);
+    try {
+      await api.routers.reportDownload(
+        routerId,
+        reportFrom,
+        reportTo,
+        `connection-report-${router.name.replace(/\s+/g, '-')}-${reportFrom}-${reportTo}.pdf`
+      );
+      toast.success('Report downloaded');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Report download failed');
+    } finally {
+      setReportLoading(false);
+    }
+  }
 
   useEffect(() => {
     setBillingOwnerId(router.billing_owner_id != null ? String(router.billing_owner_id) : '');
@@ -408,7 +433,7 @@ export function RouterDetailPage() {
               </span>
             </div>
           )}
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             <button
               onClick={() => navigate(`/routers/${routerId}/profiles`)}
               className="text-xs px-3 py-1.5 rounded-lg btn-primary"
@@ -423,6 +448,49 @@ export function RouterDetailPage() {
               Vouchers {pendingExport != null && pendingExport > 0 && `(${pendingExport})`}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Connection Trend Report */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm">
+        <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+          <FileDown className="w-4 h-4 text-primary-500" strokeWidth={2} />
+          Connection Trend Report
+        </h3>
+        <p className="text-sm text-slate-500 mb-4">
+          Download a PDF report showing how many users or devices were connected over time. Data is recorded every 15 minutes when the router is online.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-slate-600">From</label>
+            <input
+              type="date"
+              value={reportFrom}
+              onChange={(e) => setReportFrom(e.target.value)}
+              className="text-sm px-3 py-2 rounded-lg border border-slate-200"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-slate-600">To</label>
+            <input
+              type="date"
+              value={reportTo}
+              onChange={(e) => setReportTo(e.target.value)}
+              className="text-sm px-3 py-2 rounded-lg border border-slate-200"
+            />
+          </div>
+          <button
+            onClick={downloadReport}
+            disabled={reportLoading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
+          >
+            {reportLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            ) : (
+              <FileDown className="w-4 h-4 shrink-0" />
+            )}
+            Download PDF
+          </button>
         </div>
       </div>
 

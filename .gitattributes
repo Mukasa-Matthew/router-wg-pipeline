@@ -1,0 +1,2 @@
+# Patches must use LF so they apply correctly on Linux servers
+*.patch text eol=lf

@@ -76,6 +76,22 @@ export const api = {
     stats: (id: number) => request<RouterStats>(`/routers/${id}/stats`),
     users: (id: number) => request<HotspotUser[]>(`/routers/${id}/users`),
     connectionStats: (id: number) => request<ConnectionStats>(`/routers/${id}/connection-stats`),
+    reportDownload: async (id: number, from: string, to: string, filename: string): Promise<void> => {
+      const res = await fetch(`${API_BASE}/routers/${id}/report?from=${from}&to=${to}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err?.error || 'Report download failed');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || `connection-report-${from}-${to}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
     reboot: (id: number) =>
       request<{ success: boolean }>(`/routers/${id}/reboot`, {
         method: 'POST',

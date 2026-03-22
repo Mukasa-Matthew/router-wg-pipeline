@@ -6,6 +6,7 @@ const routerController = require('../services/routerController');
 const mikrotikService = require('../services/mikrotikService');
 const wireguardService = require('../services/wireguardService');
 const mikhmonService = require('../services/mikhmonService');
+const connectionReportService = require('../services/connectionReportService');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -387,6 +388,47 @@ router.get('/:id/users', async (req, res) => {
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/routers/:id/report - PDF connection trend report.
+ * Query: from=YYYY-MM-DD, to=YYYY-MM-DD (default last 7 days)
+ */
+router.get('/:id/report', async (req, res) => {
+  try {
+    const routerId = parseInt(req.params.id, 10);
+    const to = req.query.to || new Date().toISOString().slice(0, 10);
+    const from = req.query.from || (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      return d.toISOString().slice(0, 10);
+    })();
+
+    const [rows] = await db.query(
+      'SELECT id, name, location FROM routers WHERE id = ?',
+      [routerId]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Router not found' });
+    const router = rows[0];
+
+    const history = await connectionReportService.getConnectionHistory(routerId, from, to);
+    const pdf = await connectionReportService.generateReportPdf(
+      router.name,
+      router.location,
+      from,
+      to,
+      history
+    );
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="connection-report-${router.name.replace(/\s+/g, '-')}-${from}-${to}.pdf"`
+    );
+    res.send(pdf);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Report generation failed' });
   }
 });
 

@@ -117,7 +117,7 @@ export function RouterCard({
   const statusStyles = {
     online: { bg: 'bg-primary-50', text: 'text-primary-700', badge: 'bg-primary-100' },
     tunnel_failed: { bg: 'bg-amber-50', text: 'text-amber-700', badge: 'bg-amber-100' },
-    offline: { bg: 'bg-slate-100', text: 'text-slate-600', badge: 'bg-slate-200' },
+    offline: { bg: 'bg-red-50', text: 'text-red-700', badge: 'bg-red-100' },
   };
   const status = isOnline ? 'online' : isTunnelFailed ? 'tunnel_failed' : 'offline';
   const styles = statusStyles[status];
@@ -134,7 +134,11 @@ export function RouterCard({
       tabIndex={0}
       onClick={() => onManage(router.id)}
       onKeyDown={(e) => e.key === 'Enter' && onManage(router.id)}
-      className="flex flex-col h-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer"
+      className={`flex flex-col h-full rounded-xl border p-5 shadow-sm transition-all duration-200 cursor-pointer ${
+        status === 'offline'
+          ? 'border-red-200 bg-red-50/30 hover:border-red-300 hover:shadow-md'
+          : 'border-slate-200 bg-white hover:shadow-md hover:border-slate-300'
+      }`}
       onMouseEnter={() => !hasLoaded && loadStats()}
     >
       {/* Header */}
