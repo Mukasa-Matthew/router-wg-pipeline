@@ -370,8 +370,16 @@ router.get('/:id/stats', async (req, res) => {
       });
     }
 
-    const stats = await mikrotikService.getRouterStats(rows[0]);
-    res.json(stats);
+    try {
+      const stats = await mikrotikService.getRouterStats(rows[0]);
+      return res.json(stats);
+    } catch (mikErr) {
+      // Router offline or unreachable - return empty stats instead of 500
+      return res.json({
+        resources: {},
+        identity: { name: rows[0].name },
+      });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -440,8 +448,17 @@ router.get('/:id/connection-stats', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM routers WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Router not found' });
-    const stats = await mikrotikService.getConnectionStats(rows[0]);
-    res.json(stats);
+    try {
+      const stats = await mikrotikService.getConnectionStats(rows[0]);
+      return res.json(stats);
+    } catch (mikErr) {
+      // Router offline or unreachable - return empty stats instead of 500
+      return res.json({
+        hotspotEnabled: false,
+        hotspotUsers: [],
+        dhcpLeaseCount: 0,
+      });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -544,9 +561,20 @@ router.get('/:id/profiles/sync', async (req, res) => {
     if (routerRows.length === 0) return res.status(404).json({ error: 'Router not found' });
     const router = routerRows[0];
 
-    const mikrotikProfiles = await mikrotikService.getHotspotProfiles(router);
+    let mikrotikProfiles = [];
+    try {
+      mikrotikProfiles = await mikrotikService.getHotspotProfiles(router) || [];
+    } catch (mikErr) {
+      // Router offline - return existing DB profiles with synced: 0
+      const [profiles] = await db.query(
+        'SELECT * FROM hotspot_profiles WHERE router_id = ? AND is_active = 1',
+        [routerId]
+      );
+      return res.json({ synced: 0, profiles, error: 'Router unreachable' });
+    }
+
     let synced = 0;
-    for (const p of mikrotikProfiles || []) {
+    for (const p of mikrotikProfiles) {
       const profileName = p.name || p['profile-name'];
       if (!profileName) continue;
       try {
