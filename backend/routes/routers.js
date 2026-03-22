@@ -1,4 +1,5 @@
 const { EventEmitter } = require('events');
+const net = require('net');
 const express = require('express');
 const db = require('../config/database');
 const { requireAuth } = require('../middleware/auth');
@@ -502,19 +503,50 @@ router.post('/:id/enable-webfig-winbox', async (req, res) => {
 });
 
 /**
+ * Try TCP connect to ip:port (5s timeout). Returns { ok, error }
+ */
+function tryTcpConnect(ip, port) {
+  return new Promise((resolve) => {
+    const sock = net.createConnection({ host: ip, port }, () => {
+      sock.destroy();
+      resolve({ ok: true });
+    });
+    sock.setTimeout(5000);
+    sock.on('timeout', () => {
+      sock.destroy();
+      resolve({ ok: false, error: `TCP connection to ${ip}:${port} timed out (5s)` });
+    });
+    sock.on('error', (e) => {
+      sock.destroy();
+      resolve({ ok: false, error: `Cannot reach ${ip}:${port} - ${e.message}` });
+    });
+  });
+}
+
+/**
  * GET /api/routers/:id/test-api - Test MikroTik API connection (for debugging)
  */
 router.get('/:id/test-api', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM routers WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Router not found' });
+    const r = rows[0];
+    const ip = r.wg_ip || r.lan_ip;
+    const port = r.api_port || 8728;
+    if (!ip) {
+      return res.json({ ok: false, error: 'Router has no wg_ip or lan_ip configured' });
+    }
+    const tcp = await tryTcpConnect(ip, port);
+    if (!tcp.ok) {
+      return res.json({ ok: false, error: tcp.error, stage: 'tcp' });
+    }
     try {
-      await mikrotikService.getRouterStats(rows[0]);
+      await mikrotikService.getRouterStats(r);
       return res.json({ ok: true, message: 'API connection successful' });
     } catch (mikErr) {
       const msg = (mikErr && mikErr.message) || String(mikErr);
       console.warn(`[Router ${req.params.id}] API test failed:`, msg);
-      return res.json({ ok: false, error: msg });
+      return res.json({ ok: false, error: msg, stage: 'api' });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
