@@ -15,7 +15,7 @@ import {
   User,
   AlertCircle,
 } from 'lucide-react';
-import { api, type Router, type TunnelStatus, type HotspotProfile, type HotspotUser, type RouterStats, type ConnectionStats } from '../lib/api';
+import { api, type Router, type TunnelStatus, type HotspotProfile, type RouterStats, type ConnectionStats } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
 
 type OutletContext = {
