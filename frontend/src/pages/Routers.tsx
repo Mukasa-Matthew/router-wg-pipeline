@@ -53,7 +53,7 @@ export function Routers() {
         }
       />
 
-      <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-stretch">
         {routers.map((router) => (
           <RouterCard
             key={router.id}
@@ -66,7 +66,7 @@ export function Routers() {
       </div>
 
       {routers.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-navy-300 bg-white p-8 sm:p-16 text-center">
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white p-8 sm:p-16 text-center">
           <p className="text-body text-navy-600 mb-6">No routers yet. Add one to get started.</p>
           <button onClick={() => setAddOpen(true)} className="btn-primary w-full sm:w-auto">
             <Plus className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />

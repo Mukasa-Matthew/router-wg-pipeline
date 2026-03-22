@@ -25,10 +25,9 @@ body {
   min-height: 100vh;
 }
 
-/* Subtle dot grid background */
+/* Clean solid background */
 .bg-grid-pattern {
-  background-image: radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.2) 1px, transparent 0);
-  background-size: 28px 28px;
+  background-color: #f8fafc;
 }
 
 /* Custom scrollbar */

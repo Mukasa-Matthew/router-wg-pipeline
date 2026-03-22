@@ -59,7 +59,7 @@ export function Layout() {
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-navy-200/60">
+        <div className="flex items-center justify-between p-5 border-b border-slate-200">
           <button
             onClick={() => {
               navigate('/');
@@ -67,12 +67,12 @@ export function Layout() {
             }}
             className="flex items-center gap-3 group"
           >
-            <div className="p-2.5 rounded-xl bg-primary-600 shadow-soft flex items-center justify-center group-hover:bg-primary-700 transition-colors">
+            <div className="p-2.5 rounded-lg bg-primary-600 flex items-center justify-center group-hover:bg-primary-700 transition-colors">
               <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="RouterHub" className="w-6 h-6" />
             </div>
             <div className="text-left">
-              <span className="font-display font-semibold text-navy-900 text-title block tracking-tight">RouterHub</span>
-              <span className="text-caption text-navy-500">MikroTik Dashboard</span>
+              <span className="font-semibold text-slate-900 text-[15px] block">RouterHub</span>
+              <span className="text-xs text-slate-500">MikroTik Dashboard</span>
             </div>
           </button>
           <button

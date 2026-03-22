@@ -30,14 +30,14 @@ function StatCard({
   iconColor: string;
 }) {
   return (
-    <div className="rounded-2xl border border-navy-200/80 bg-white p-4 sm:p-6 shadow-card">
+    <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <div className="min-w-0">
-          <p className="text-label text-navy-500 truncate">{label}</p>
-          <p className="font-display font-semibold text-lg sm:text-title text-navy-900 mt-1.5 sm:mt-2">{value}</p>
+        <div>
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</p>
+          <p className="text-xl font-semibold text-slate-900 mt-1">{value}</p>
         </div>
-        <div className={`p-2.5 sm:p-3 rounded-xl shrink-0 ${iconBg}`}>
-          <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${iconColor}`} strokeWidth={2} />
+        <div className={`p-2.5 rounded-lg shrink-0 ${iconBg}`}>
+          <Icon className={`w-5 h-5 ${iconColor}`} strokeWidth={2} />
         </div>
       </div>
     </div>
@@ -119,7 +119,7 @@ export function Dashboard() {
       </div>
 
       {routers.length > 0 ? (
-        <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-stretch">
           {routers.map((router) => (
             <RouterCard
               key={router.id}
@@ -131,17 +131,17 @@ export function Dashboard() {
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-navy-300 bg-white p-8 sm:p-16 text-center">
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white p-8 sm:p-16 text-center">
           <div className="max-w-sm mx-auto">
-            <div className="inline-flex p-5 rounded-2xl bg-navy-100 mb-6">
+            <div className="inline-flex p-5 rounded-xl bg-slate-100 mb-6">
               <Wifi className="w-14 h-14 text-navy-500" strokeWidth={1.5} />
             </div>
-            <h3 className="font-display font-semibold text-title text-navy-900 mb-2">No routers yet</h3>
-            <p className="text-body text-navy-500 mb-8 leading-relaxed">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">No routers yet</h3>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed">
               Add your first MikroTik router to get started. RouterHub will configure WireGuard and connect it to your VPS for secure remote management.
             </p>
             <AddRouterButton onClick={() => setAddOpen(true)} />
-            <p className="text-caption text-navy-400 mt-6">Requires MikroTik RouterOS with API enabled</p>
+            <p className="text-xs text-slate-400 mt-6">Requires MikroTik RouterOS with API enabled</p>
           </div>
         </div>
       )}
