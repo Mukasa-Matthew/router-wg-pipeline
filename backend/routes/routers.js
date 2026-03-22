@@ -498,7 +498,10 @@ router.post('/:id/enable-webfig-winbox', async (req, res) => {
     await mikrotikService.enableWebfigAndWinbox(rows[0]);
     res.json({ success: true, message: 'WebFig and Winbox enabled. Try opening them again.' });
   } catch (err) {
-    res.status(500).json({ error: err.message || 'Failed to enable services' });
+    const msg = mikrotikService.formatMikrotikConnectionError
+      ? mikrotikService.formatMikrotikConnectionError(err)
+      : (err.message || 'Failed to enable services');
+    res.status(503).json({ error: msg });
   }
 });
 
