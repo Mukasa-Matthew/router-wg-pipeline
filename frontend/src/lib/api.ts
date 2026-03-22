@@ -76,6 +76,8 @@ export const api = {
     stats: (id: number) => request<RouterStats>(`/routers/${id}/stats`),
     users: (id: number) => request<HotspotUser[]>(`/routers/${id}/users`),
     connectionStats: (id: number) => request<ConnectionStats>(`/routers/${id}/connection-stats`),
+    testApi: (id: number) =>
+      request<{ ok: boolean; error?: string; message?: string }>(`/routers/${id}/test-api`),
     reportDownload: async (id: number, from: string, to: string, filename: string): Promise<void> => {
       const res = await fetch(`${API_BASE}/routers/${id}/report?from=${from}&to=${to}`, {
         credentials: 'include',

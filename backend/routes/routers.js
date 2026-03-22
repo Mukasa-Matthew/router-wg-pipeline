@@ -374,7 +374,7 @@ router.get('/:id/stats', async (req, res) => {
       const stats = await mikrotikService.getRouterStats(rows[0]);
       return res.json(stats);
     } catch (mikErr) {
-      // Router offline or unreachable - return empty stats instead of 500
+      console.warn(`[Router ${req.params.id}] Stats failed:`, mikErr?.message || mikErr);
       return res.json({
         resources: {},
         identity: { name: rows[0].name },
@@ -452,7 +452,7 @@ router.get('/:id/connection-stats', async (req, res) => {
       const stats = await mikrotikService.getConnectionStats(rows[0]);
       return res.json(stats);
     } catch (mikErr) {
-      // Router offline or unreachable - return empty stats instead of 500
+      console.warn(`[Router ${req.params.id}] Connection stats failed:`, mikErr?.message || mikErr);
       return res.json({
         hotspotEnabled: false,
         hotspotUsers: [],
@@ -498,6 +498,26 @@ router.post('/:id/enable-webfig-winbox', async (req, res) => {
     res.json({ success: true, message: 'WebFig and Winbox enabled. Try opening them again.' });
   } catch (err) {
     res.status(500).json({ error: err.message || 'Failed to enable services' });
+  }
+});
+
+/**
+ * GET /api/routers/:id/test-api - Test MikroTik API connection (for debugging)
+ */
+router.get('/:id/test-api', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM routers WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Router not found' });
+    try {
+      await mikrotikService.getRouterStats(rows[0]);
+      return res.json({ ok: true, message: 'API connection successful' });
+    } catch (mikErr) {
+      const msg = (mikErr && mikErr.message) || String(mikErr);
+      console.warn(`[Router ${req.params.id}] API test failed:`, msg);
+      return res.json({ ok: false, error: msg });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

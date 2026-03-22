@@ -20,7 +20,8 @@ async function recordSnapshot(router) {
       [router.id, stats.hotspotEnabled ? 1 : 0, count]
     );
   } catch (err) {
-    console.warn(`[ConnectionReport] Snapshot failed for router ${router.id}:`, err.message);
+    const msg = err?.message || err?.code || String(err) || 'Unknown';
+    console.warn(`[ConnectionReport] Snapshot failed for router ${router.id}:`, msg);
   }
 }
 

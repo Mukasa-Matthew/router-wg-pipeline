@@ -118,7 +118,8 @@ async function refreshAllRouterStats() {
           [r.id, cpuLoad, usedMem, totalMem, uptime]
         );
       } catch (err) {
-        console.warn(`Stats refresh failed for router ${r.id}:`, err.message);
+        const msg = err?.message || err?.code || String(err) || 'Unknown';
+        console.warn(`Stats refresh failed for router ${r.id}:`, msg);
       }
     }
   } catch (err) {

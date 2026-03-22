@@ -46,6 +46,7 @@ export function RouterDetailPage() {
   const [webfigTargetPort, setWebfigTargetPort] = useState<string>('');
   const [savingWebfigPort, setSavingWebfigPort] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
+  const [diagnoseLoading, setDiagnoseLoading] = useState(false);
   const [reportFrom, setReportFrom] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
@@ -54,6 +55,22 @@ export function RouterDetailPage() {
   const [reportTo, setReportTo] = useState(() => new Date().toISOString().slice(0, 10));
 
   const isOnline = tunnelStatus?.tunnel_up ?? router.status === 'online';
+
+  async function runDiagnose() {
+    setDiagnoseLoading(true);
+    try {
+      const result = await api.routers.testApi(routerId);
+      if (result.ok) {
+        toast.success('API connection OK');
+      } else {
+        toast.error(result.error || 'API connection failed');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Diagnose failed');
+    } finally {
+      setDiagnoseLoading(false);
+    }
+  }
 
   async function downloadReport() {
     setReportLoading(true);
@@ -403,7 +420,21 @@ export function RouterDetailPage() {
                 </div>
               )}
               {!cpuLoad && !totalMem && !uptime && (
-                <p className="text-navy-500">No stats available</p>
+                <div className="space-y-2">
+                  <p className="text-navy-500">No stats available</p>
+                  <button
+                    onClick={runDiagnose}
+                    disabled={diagnoseLoading}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    {diagnoseLoading ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <AlertCircle className="w-3 h-3" />
+                    )}
+                    Diagnose API connection
+                  </button>
+                </div>
               )}
             </dl>
           )}
