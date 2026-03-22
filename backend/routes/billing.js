@@ -386,7 +386,10 @@ router.post('/generate-vouchers', requireBillingApiKey, async (req, res) => {
         return res.status(400).json({ success: false, error: 'Profile not found on router', code: 'PROFILE_NOT_FOUND' });
       }
     } catch (e) {
-      return res.status(500).json({ success: false, error: e.message || 'Failed to read profiles from router', code: 'MIKROTIK_ERROR' });
+      const msg = mikrotikService.formatMikrotikConnectionError
+        ? mikrotikService.formatMikrotikConnectionError(e)
+        : (e.message || 'Failed to read profiles from router');
+      return res.status(503).json({ success: false, error: msg, code: 'MIKROTIK_ERROR' });
     }
 
     const mikrotikVouchers = await mikrotikService.generateVouchersOnMikrotik(
@@ -411,7 +414,10 @@ router.post('/generate-vouchers', requireBillingApiKey, async (req, res) => {
     res.json({ success: true, owner_id: ownerId, router_id: routerId, vouchers });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: 'Failed to generate vouchers', code: 'MIKROTIK_ERROR' });
+    const msg = mikrotikService.formatMikrotikConnectionError
+      ? mikrotikService.formatMikrotikConnectionError(err)
+      : (err.message || 'Failed to generate vouchers');
+    res.status(503).json({ success: false, error: msg, code: 'MIKROTIK_ERROR' });
   }
 });
 
@@ -459,13 +465,19 @@ router.post('/create-profile', requireBillingApiKeyV2, async (req, res) => {
         rate_limit: dataLimit || undefined,
       });
     } catch (e) {
-      return billingFail(res, 500, 'MIKROTIK_ERROR', e.message || 'Failed to create profile');
+      const msg = mikrotikService.formatMikrotikConnectionError
+        ? mikrotikService.formatMikrotikConnectionError(e)
+        : (e.message || 'Failed to create profile');
+      return billingFail(res, 503, 'MIKROTIK_ERROR', msg);
     }
 
     return res.json({ success: true, profile_name: profileName, router_id: String(routerId) });
   } catch (err) {
     console.error(err);
-    return billingFail(res, 500, 'MIKROTIK_ERROR', 'Failed to create profile');
+    const msg = mikrotikService.formatMikrotikConnectionError
+      ? mikrotikService.formatMikrotikConnectionError(err)
+      : 'Failed to create profile';
+    return billingFail(res, 503, 'MIKROTIK_ERROR', msg);
   }
 });
 
@@ -495,17 +507,22 @@ router.post('/delete-profile', requireBillingApiKeyV2, async (req, res) => {
     try {
       await mikrotikService.deleteHotspotProfile(r, profileName);
     } catch (e) {
-      const msg = e.message || 'Failed to delete profile';
+      const msg = mikrotikService.formatMikrotikConnectionError
+        ? mikrotikService.formatMikrotikConnectionError(e)
+        : (e.message || 'Failed to delete profile');
       if (msg.toLowerCase().includes('not found')) {
         return billingFail(res, 400, 'PROFILE_NOT_FOUND', msg);
       }
-      return billingFail(res, 500, 'MIKROTIK_ERROR', msg);
+      return billingFail(res, 503, 'MIKROTIK_ERROR', msg);
     }
 
     return res.json({ success: true });
   } catch (err) {
     console.error(err);
-    return billingFail(res, 500, 'MIKROTIK_ERROR', 'Failed to delete profile');
+    const msg = mikrotikService.formatMikrotikConnectionError
+      ? mikrotikService.formatMikrotikConnectionError(err)
+      : 'Failed to delete profile';
+    return billingFail(res, 503, 'MIKROTIK_ERROR', msg);
   }
 });
 
@@ -684,11 +701,13 @@ router.post('/update-profile', requireBillingApiKeyV2, async (req, res) => {
         await mikrotikService.updateHotspotProfile(r, profileName, profileData);
       }
     } catch (e) {
-      const msg = e.message || 'Failed to update profile';
+      const msg = mikrotikService.formatMikrotikConnectionError
+        ? mikrotikService.formatMikrotikConnectionError(e)
+        : (e.message || 'Failed to update profile');
       if (msg.toLowerCase().includes('not found')) {
         return billingFail(res, 400, 'PROFILE_NOT_FOUND', msg);
       }
-      return billingFail(res, 500, 'MIKROTIK_ERROR', msg);
+      return billingFail(res, 503, 'MIKROTIK_ERROR', msg);
     }
 
     // Step 2: optional rename if new_profile_name provided and different.
@@ -708,8 +727,10 @@ router.post('/update-profile', requireBillingApiKeyV2, async (req, res) => {
           ]);
         });
       } catch (e) {
-        const msg = e.message || 'Failed to rename profile';
-        return billingFail(res, 500, 'MIKROTIK_ERROR', msg);
+        const msg = mikrotikService.formatMikrotikConnectionError
+          ? mikrotikService.formatMikrotikConnectionError(e)
+          : (e.message || 'Failed to rename profile');
+        return billingFail(res, 503, 'MIKROTIK_ERROR', msg);
       }
     }
 
@@ -721,7 +742,10 @@ router.post('/update-profile', requireBillingApiKeyV2, async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    return billingFail(res, 500, 'MIKROTIK_ERROR', 'Failed to update profile');
+    const msg = mikrotikService.formatMikrotikConnectionError
+      ? mikrotikService.formatMikrotikConnectionError(err)
+      : 'Failed to update profile';
+    return billingFail(res, 503, 'MIKROTIK_ERROR', msg);
   }
 });
 

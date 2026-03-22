@@ -721,7 +721,10 @@ router.post('/:id/profiles', async (req, res) => {
     ]);
     res.json({ success: true, profile: profile[0] });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    const msg = mikrotikService.formatMikrotikConnectionError
+      ? mikrotikService.formatMikrotikConnectionError(err)
+      : err.message;
+    res.status(503).json({ error: msg });
   }
 });
 
@@ -752,7 +755,10 @@ router.post('/:id/profiles/fix-all', async (req, res) => {
     res.json({ fixed });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    const msg = mikrotikService.formatMikrotikConnectionError
+      ? mikrotikService.formatMikrotikConnectionError(err)
+      : err.message;
+    res.status(503).json({ error: msg });
   }
 });
 
@@ -801,8 +807,10 @@ router.put('/:id/profiles/:profileId', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
-    const msg = (err && err.message) || String(err) || 'Failed to update profile';
-    res.status(500).json({ error: msg });
+    const msg = mikrotikService.formatMikrotikConnectionError
+      ? mikrotikService.formatMikrotikConnectionError(err)
+      : (err?.message || 'Failed to update profile');
+    res.status(503).json({ error: msg });
   }
 });
 
@@ -848,8 +856,10 @@ router.delete('/:id/profiles/:profileId', async (req, res) => {
     console.log(`[Router ${routerId}] Profile "${profile.profile_name}" deleted`);
     res.json({ success: true });
   } catch (err) {
-    const msg = (err && err.message) || String(err) || 'Failed to delete profile';
-    res.status(500).json({ error: msg });
+    const msg = mikrotikService.formatMikrotikConnectionError
+      ? mikrotikService.formatMikrotikConnectionError(err)
+      : (err?.message || 'Failed to delete profile');
+    res.status(503).json({ error: msg });
   }
 });
 

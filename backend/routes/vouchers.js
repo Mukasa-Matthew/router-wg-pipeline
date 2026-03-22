@@ -178,7 +178,10 @@ router.post('/generate', async (req, res) => {
     res.json({ success: true, vouchers: created });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    const msg = mikrotikService.formatMikrotikConnectionError
+      ? mikrotikService.formatMikrotikConnectionError(err)
+      : err.message;
+    res.status(503).json({ error: msg });
   }
 });
 

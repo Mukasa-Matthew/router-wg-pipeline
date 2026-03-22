@@ -39,6 +39,22 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Turn MikroTik/Node connection errors into user-friendly messages */
+function formatMikrotikConnectionError(err) {
+  const msg = (err && err.message) ? String(err.message) : String(err);
+  const code = err && err.code;
+  if (code === 'ECONNREFUSED' || /ECONNREFUSED/i.test(msg)) {
+    return 'Cannot connect to router API (connection refused). Ensure the MikroTik API is enabled and listening on all interfaces. On the router, run: /ip service enable api and /ip service set api address=0.0.0.0/0';
+  }
+  if (code === 'ETIMEDOUT' || code === 'ECONNRESET' || /timed out|timeout|ECONNRESET/i.test(msg)) {
+    return 'Router API connection timed out. Check that the router is online and reachable over WireGuard.';
+  }
+  if (code === 'ENETUNREACH' || code === 'EHOSTUNREACH' || /ENETUNREACH|EHOSTUNREACH/i.test(msg)) {
+    return 'Cannot reach router. Check WireGuard tunnel and routing.';
+  }
+  return msg;
+}
+
 /** Per-router connection queue: only one MikroTik API operation at a time per router. */
 const routerLocks = new Map();
 
@@ -631,4 +647,5 @@ module.exports = {
   deleteHotspotUser,
   fixProfileOnMikrotik,
   validityToUptime,
+  formatMikrotikConnectionError,
 };
