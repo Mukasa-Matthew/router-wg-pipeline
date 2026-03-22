@@ -46,14 +46,14 @@ export function Routers() {
         title="Routers"
         subtitle="Manage your MikroTik routers and WireGuard tunnels"
         action={
-          <button onClick={() => setAddOpen(true)} className="btn-primary">
-            <Plus className="w-5 h-5" />
+          <button onClick={() => setAddOpen(true)} className="btn-primary w-full sm:w-auto justify-center">
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
             Add Router
           </button>
         }
       />
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {routers.map((router) => (
           <RouterCard
             key={router.id}
@@ -66,10 +66,10 @@ export function Routers() {
       </div>
 
       {routers.length === 0 && (
-        <div className="rounded-2xl border-2 border-dashed border-navy-200 bg-white p-16 text-center">
-          <p className="text-navy-600 mb-6">No routers yet. Add one to get started.</p>
-          <button onClick={() => setAddOpen(true)} className="btn-primary">
-            <Plus className="w-5 h-5" />
+        <div className="rounded-2xl border border-dashed border-navy-300 bg-white p-8 sm:p-16 text-center">
+          <p className="text-body text-navy-600 mb-6">No routers yet. Add one to get started.</p>
+          <button onClick={() => setAddOpen(true)} className="btn-primary w-full sm:w-auto">
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5" strokeWidth={2} />
             Add Router
           </button>
         </div>

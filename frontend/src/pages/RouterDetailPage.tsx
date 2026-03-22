@@ -158,10 +158,10 @@ export function RouterDetailPage() {
   const uptime = res.uptime || null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Overview cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl border border-navy-200/80 bg-white p-4 sm:p-6 shadow-card">
           <h3 className="text-label text-navy-500 mb-3">Router Info</h3>
           <dl className="space-y-2 text-sm">
             <div>
@@ -243,7 +243,7 @@ export function RouterDetailPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+        <div className="rounded-2xl border border-navy-200/80 bg-white p-4 sm:p-6 shadow-card">
           <h3 className="text-label text-navy-500 mb-3 flex items-center gap-2">
             <Shield className="w-4 h-4 text-primary-500" strokeWidth={2} />
             WireGuard
@@ -335,7 +335,7 @@ export function RouterDetailPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+        <div className="rounded-2xl border border-navy-200/80 bg-white p-4 sm:p-6 shadow-card">
           <h3 className="text-label text-navy-500 mb-3 flex items-center gap-2">
             <Cpu className="w-4 h-4 text-primary-500" strokeWidth={2} />
             Router Health
@@ -384,7 +384,7 @@ export function RouterDetailPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+        <div className="rounded-2xl border border-navy-200/80 bg-white p-4 sm:p-6 shadow-card">
           <h3 className="text-label text-navy-500 mb-3 flex items-center gap-2">
             <Users className="w-4 h-4 text-primary-500" strokeWidth={2} />
             {connectionStats?.hotspotEnabled ? 'Active Users' : 'Devices on Network'}
@@ -428,13 +428,13 @@ export function RouterDetailPage() {
 
       {/* Connected users (only when hotspot enabled, we have per-user data) */}
       {isOnline && connectionStats?.hotspotEnabled && connectionStats.hotspotUsers.length > 0 && (
-        <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+        <div className="rounded-2xl border border-navy-200/80 bg-white p-4 sm:p-6 shadow-card">
           <h3 className="font-display font-semibold text-title text-navy-900 mb-4 flex items-center gap-2">
             <User className="w-5 h-5 text-primary-500" strokeWidth={2} />
             Connected Devices ({connectionStats.hotspotUsers.length})
           </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[400px] text-sm">
+          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <table className="w-full min-w-[320px] sm:min-w-[400px] text-sm">
               <thead>
                 <tr className="border-b border-navy-200 text-left">
                   <th className="py-3 px-4 font-medium text-navy-600">Username</th>
@@ -461,7 +461,7 @@ export function RouterDetailPage() {
       )}
 
       {/* Hotspot profiles */}
-      <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+      <div className="rounded-2xl border border-navy-200/80 bg-white p-4 sm:p-6 shadow-card">
         <h3 className="font-display font-semibold text-title text-navy-900 mb-4 flex items-center gap-2">
           <FileText className="w-5 h-5 text-primary-500" strokeWidth={2} />
           Hotspot Profiles ({profiles.length})

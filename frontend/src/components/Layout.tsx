@@ -38,10 +38,10 @@ export function Layout() {
       {/* Mobile menu button */}
       <button
         onClick={() => setSidebarOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-white border-2 border-navy-300 shadow-lg text-navy-700 hover:bg-navy-50 transition"
+        className="lg:hidden fixed z-50 p-3 rounded-xl bg-white border border-navy-200 shadow-soft text-navy-700 hover:bg-navy-50 active:scale-95 transition touch-manipulation top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))]"
         aria-label="Open menu"
       >
-        <Menu className="w-5 h-5" />
+        <Menu className="w-5 h-5" strokeWidth={2} />
       </button>
 
       {/* Sidebar overlay */}
@@ -52,9 +52,9 @@ export function Layout() {
         />
       )}
 
-      {/* Sidebar - fixed on desktop, slide-in on mobile */}
+      {/* Sidebar - fixed on desktop, slide-in on mobile; full width on very small screens */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 flex flex-col bg-white border-r border-navy-200/80 shadow-elevated transform transition-transform duration-300 ease-out lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-[min(288px,85vw)] sm:w-72 flex flex-col bg-white border-r border-navy-200/80 shadow-elevated transform transition-transform duration-300 ease-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -158,7 +158,7 @@ export function Layout() {
 
       {/* Main content - scrollable, offset by sidebar on desktop */}
       <main className="min-h-screen overflow-auto lg:ml-72 bg-grid-pattern">
-        <div className="p-6 lg:p-8 pt-20 lg:pt-8 max-w-[1600px] mx-auto">
+        <div className="px-4 py-5 pb-8 pt-20 sm:px-5 sm:pt-5 lg:p-8 max-w-[1600px] mx-auto">
           <Outlet />
         </div>
       </main>

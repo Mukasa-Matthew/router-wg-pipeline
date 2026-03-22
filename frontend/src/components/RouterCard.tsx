@@ -128,41 +128,42 @@ export function RouterCard({
       tabIndex={0}
       onClick={() => onManage(router.id)}
       onKeyDown={(e) => e.key === 'Enter' && onManage(router.id)}
-      className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card hover:shadow-card-hover hover:border-navy-300/60 transition-all duration-200 group cursor-pointer"
+      className="rounded-2xl border border-navy-200/80 bg-white p-4 sm:p-6 shadow-card hover:shadow-card-hover hover:border-navy-300/60 transition-all duration-200 group cursor-pointer touch-manipulation"
       onMouseEnter={() => !hasLoaded && loadStats()}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          <div className={`p-3 rounded-xl ${styles.bg}`}>
-            <Wifi className={`w-6 h-6 ${styles.text}`} strokeWidth={2} />
+      {/* Header: icon + content + menu */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+          <div className={`p-2.5 sm:p-3 rounded-xl shrink-0 ${styles.bg}`}>
+            <Wifi className={`w-5 h-5 sm:w-6 sm:h-6 ${styles.text}`} strokeWidth={2} />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-display font-semibold text-title text-navy-900">{router.name}</h3>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-label font-medium ${styles.badge} ${styles.text}`}>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 gap-y-1">
+              <h3 className="font-display font-semibold text-base sm:text-title text-navy-900 truncate">{router.name}</h3>
+              <span className={`inline-flex items-center shrink-0 px-2 py-0.5 rounded-lg text-label font-medium ${styles.badge} ${styles.text}`}>
                 {isOnline ? 'Online' : isTunnelFailed ? 'Tunnel failed' : 'Offline'}
               </span>
             </div>
             {router.location && (
-              <p className="text-body text-navy-600 flex items-center gap-1.5 mt-1">
-                <MapPin className="w-4 h-4 text-navy-400 shrink-0" strokeWidth={2} />
-                {router.location}
+              <p className="text-body text-navy-600 flex items-center gap-1.5 mt-1 truncate">
+                <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-navy-400 shrink-0" strokeWidth={2} />
+                <span className="truncate">{router.location}</span>
               </p>
             )}
-            {(router.billing_owner_id != null || router.billing_hotspot_key) && (
-              <p className="text-caption text-navy-500 mt-1">
-                Billing: {router.billing_hotspot_key || `owner #${router.billing_owner_id}`}
-              </p>
-            )}
-            <p className="text-caption text-navy-400 mt-1 font-mono">
-              ID {router.id}
-            </p>
+            <div className="hidden sm:block">
+              {(router.billing_owner_id != null || router.billing_hotspot_key) && (
+                <p className="text-caption text-navy-500 mt-1">
+                  Billing: {router.billing_hotspot_key || `owner #${router.billing_owner_id}`}
+                </p>
+              )}
+              <p className="text-caption text-navy-400 mt-0.5 font-mono">ID {router.id}</p>
+            </div>
           </div>
         </div>
-        <div className="relative" onClick={(e) => e.stopPropagation()}>
+        <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="p-2 rounded-lg bg-navy-100 text-navy-600 hover:bg-navy-200 transition"
+            className="p-2.5 rounded-lg bg-navy-100 text-navy-600 hover:bg-navy-200 transition touch-manipulation min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
             aria-label="More options"
           >
             <MoreVertical className="w-4 h-4" strokeWidth={2} />
@@ -170,13 +171,13 @@ export function RouterCard({
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 top-full mt-1 py-1 rounded-xl bg-white border border-navy-200 shadow-elevated z-20 min-w-[140px]">
+              <div className="absolute right-0 sm:right-0 left-auto sm:left-auto min-w-[140px] sm:min-w-[140px] top-full mt-1 py-1 rounded-xl bg-white border border-navy-200 shadow-elevated z-20">
                 <button
                   onClick={() => {
                     setMenuOpen(false);
                     onManage(router.id);
                   }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-body text-navy-700 hover:bg-navy-50 rounded-lg mx-1"
+                  className="w-full flex items-center gap-2 px-4 py-3 sm:py-2.5 text-body text-navy-700 hover:bg-navy-50 rounded-lg mx-1 touch-manipulation"
                 >
                   <Settings className="w-4 h-4" />
                   Manage
@@ -184,7 +185,7 @@ export function RouterCard({
                 <button
                   onClick={handleReboot}
                   disabled={loading}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-body text-navy-700 hover:bg-navy-50 disabled:opacity-50 rounded-lg mx-1"
+                  className="w-full flex items-center gap-2 px-4 py-3 sm:py-2.5 text-body text-navy-700 hover:bg-navy-50 disabled:opacity-50 rounded-lg mx-1 touch-manipulation"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Reboot
@@ -192,7 +193,7 @@ export function RouterCard({
                 <button
                   onClick={handleDelete}
                   disabled={loading}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-body text-red-600 hover:bg-red-50 disabled:opacity-50 rounded-lg mx-1"
+                  className="w-full flex items-center gap-2 px-4 py-3 sm:py-2.5 text-body text-red-600 hover:bg-red-50 disabled:opacity-50 rounded-lg mx-1 touch-manipulation"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete
@@ -203,7 +204,8 @@ export function RouterCard({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-5 text-body">
+      {/* Stats row - IP + users */}
+      <div className="mt-4 sm:mt-5 flex flex-wrap gap-3 sm:gap-5 text-body">
         {router.wg_ip && (
           <span className="flex items-center gap-2 text-navy-600">
             <Shield className="w-4 h-4 text-primary-500 shrink-0" strokeWidth={2} />
@@ -220,19 +222,20 @@ export function RouterCard({
         </span>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-3" onClick={(e) => e.stopPropagation()}>
+      {/* Action buttons - stack on mobile, row on sm+ */}
+      <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={() => onManage(router.id)}
-          className="flex-1 min-w-[100px] py-2.5 px-4 rounded-xl btn-primary text-sm"
+          className="w-full sm:flex-1 min-w-0 py-3 sm:py-2.5 px-4 rounded-xl btn-primary text-sm touch-manipulation"
         >
-          <Settings className="w-4 h-4" strokeWidth={2} />
+          <Settings className="w-4 h-4 shrink-0" strokeWidth={2} />
           Manage
         </button>
         {router.wg_ip && (
           <button
             onClick={openMikHmon}
             disabled={mikhmonLoading}
-            className="py-2.5 px-4 rounded-xl bg-white border border-navy-300 text-navy-700 hover:bg-navy-50 text-sm font-medium disabled:opacity-50 flex items-center gap-2 transition"
+            className="w-full sm:flex-1 min-w-0 py-3 sm:py-2.5 px-4 rounded-xl bg-white border border-navy-300 text-navy-700 hover:bg-navy-50 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2 transition touch-manipulation"
           >
             {mikhmonLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" strokeWidth={2} />
@@ -244,9 +247,9 @@ export function RouterCard({
         )}
         <button
           onClick={() => onVouchers(router.id)}
-          className="flex-1 min-w-[100px] py-2.5 px-4 rounded-xl btn-secondary text-sm relative"
+          className="w-full sm:flex-1 min-w-0 py-3 sm:py-2.5 px-4 rounded-xl btn-secondary text-sm relative touch-manipulation"
         >
-          <Key className="w-4 h-4" strokeWidth={2} />
+          <Key className="w-4 h-4 shrink-0" strokeWidth={2} />
           Vouchers
           {pendingExport !== null && pendingExport > 0 && (
             <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary-500 text-white text-label font-semibold flex items-center justify-center">

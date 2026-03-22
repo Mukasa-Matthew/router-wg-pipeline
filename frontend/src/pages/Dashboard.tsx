@@ -9,7 +9,7 @@ import { PageHeader } from '../components/PageHeader';
 
 function AddRouterButton({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} className="btn-primary">
+    <button onClick={onClick} className="btn-primary w-full sm:w-auto justify-center">
       <Plus className="w-4 h-4" strokeWidth={2.5} />
       Add Router
     </button>
@@ -30,14 +30,14 @@ function StatCard({
   iconColor: string;
 }) {
   return (
-    <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+    <div className="rounded-2xl border border-navy-200/80 bg-white p-4 sm:p-6 shadow-card">
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-label text-navy-500">{label}</p>
-          <p className="font-display font-semibold text-title text-navy-900 mt-2">{value}</p>
+        <div className="min-w-0">
+          <p className="text-label text-navy-500 truncate">{label}</p>
+          <p className="font-display font-semibold text-lg sm:text-title text-navy-900 mt-1.5 sm:mt-2">{value}</p>
         </div>
-        <div className={`p-3 rounded-xl ${iconBg}`}>
-          <Icon className={`w-6 h-6 ${iconColor}`} strokeWidth={2} />
+        <div className={`p-2.5 sm:p-3 rounded-xl shrink-0 ${iconBg}`}>
+          <Icon className={`w-5 h-5 sm:w-6 sm:h-6 ${iconColor}`} strokeWidth={2} />
         </div>
       </div>
     </div>
@@ -87,7 +87,7 @@ export function Dashboard() {
         action={<AddRouterButton onClick={() => setAddOpen(true)} />}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-10">
         <StatCard
           label="Total Routers"
           value={routers.length}
@@ -119,7 +119,7 @@ export function Dashboard() {
       </div>
 
       {routers.length > 0 ? (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {routers.map((router) => (
             <RouterCard
               key={router.id}
@@ -131,7 +131,7 @@ export function Dashboard() {
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-navy-300 bg-white p-16 text-center">
+        <div className="rounded-2xl border border-dashed border-navy-300 bg-white p-8 sm:p-16 text-center">
           <div className="max-w-sm mx-auto">
             <div className="inline-flex p-5 rounded-2xl bg-navy-100 mb-6">
               <Wifi className="w-14 h-14 text-navy-500" strokeWidth={1.5} />

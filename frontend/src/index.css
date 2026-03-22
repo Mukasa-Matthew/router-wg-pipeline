@@ -53,9 +53,19 @@ body {
   outline-offset: 2px;
 }
 
+/* Safe area for notched devices */
+@supports (padding: max(0px)) {
+  .safe-area-top {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+  .safe-area-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+}
+
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all bg-primary-600 text-white hover:bg-primary-700 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-xl font-semibold text-sm transition-all bg-primary-600 text-white hover:bg-primary-700 active:scale-[0.98] touch-manipulation min-h-[44px] sm:min-h-0;
     box-shadow: 0 1px 2px rgb(5 150 105 / 0.2);
   }
   .btn-primary:hover:not(:disabled) {
@@ -65,7 +75,7 @@ body {
     @apply opacity-60 cursor-not-allowed;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all bg-white text-navy-700 border border-navy-300 hover:bg-navy-50 hover:border-navy-400 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 rounded-xl font-medium text-sm transition-all bg-white text-navy-700 border border-navy-300 hover:bg-navy-50 hover:border-navy-400 active:scale-[0.98] touch-manipulation min-h-[44px] sm:min-h-0;
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm text-navy-600 hover:bg-navy-100 hover:text-navy-900 transition;
