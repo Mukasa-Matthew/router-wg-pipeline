@@ -64,9 +64,9 @@ export function RouterDetailLayout() {
 
   if (loading || !router) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
-        <p className="text-sm font-medium text-navy-600">Loading router...</p>
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-5">
+        <Loader2 className="w-10 h-10 text-primary-500 animate-spin" strokeWidth={2} />
+        <p className="text-body font-medium text-navy-500">Loading router…</p>
       </div>
     );
   }
@@ -86,11 +86,11 @@ export function RouterDetailLayout() {
         </button>
       </div>
 
-      <h1 className="text-2xl font-bold text-navy-900 mb-1">{router.name}</h1>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-6 text-navy-600">
-        <p>{router.location || router.wg_ip || 'Router details'}</p>
-        <span className="text-sm">
-          RouterHub ID: <span className="font-mono text-navy-900">{routerId}</span>
+      <h1 className="font-display font-semibold text-display-lg text-navy-900 mb-1 tracking-tight">{router.name}</h1>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-6 text-body text-navy-500">
+        <span>{router.location || router.wg_ip || 'Router details'}</span>
+        <span className="text-caption">
+          ID <span className="font-mono text-navy-700">{routerId}</span>
         </span>
       </div>
 

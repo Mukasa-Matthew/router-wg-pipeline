@@ -54,12 +54,12 @@ export function Layout() {
 
       {/* Sidebar - fixed on desktop, slide-in on mobile */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 flex flex-col bg-white border-r border-navy-200 shadow-xl transform transition-transform duration-300 ease-out lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-72 flex flex-col bg-white border-r border-navy-200/80 shadow-elevated transform transition-transform duration-300 ease-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-navy-100 bg-gradient-to-b from-white to-navy-50/30">
+        <div className="flex items-center justify-between p-5 border-b border-navy-200/60">
           <button
             onClick={() => {
               navigate('/');
@@ -67,12 +67,12 @@ export function Layout() {
             }}
             className="flex items-center gap-3 group"
           >
-            <div className="p-2.5 rounded-xl bg-[#059669] shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-200 flex items-center justify-center">
+            <div className="p-2.5 rounded-xl bg-primary-600 shadow-soft flex items-center justify-center group-hover:bg-primary-700 transition-colors">
               <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="RouterHub" className="w-6 h-6" />
             </div>
             <div className="text-left">
-              <span className="font-bold text-navy-900 text-lg block leading-tight">RouterHub</span>
-              <span className="text-xs text-navy-500 font-medium">MikroTik Dashboard</span>
+              <span className="font-display font-semibold text-navy-900 text-title block tracking-tight">RouterHub</span>
+              <span className="text-caption text-navy-500">MikroTik Dashboard</span>
             </div>
           </button>
           <button
@@ -86,7 +86,7 @@ export function Layout() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
-          <p className="px-3 mb-3 text-[11px] font-bold text-navy-400 uppercase tracking-widest">
+          <p className="px-3 mb-3 text-label text-navy-400">
             Navigation
           </p>
           <div className="space-y-1">
@@ -99,10 +99,10 @@ export function Layout() {
                     navigate(path);
                     setSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-200 group relative ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors group relative ${
                     isActive
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-navy-600 hover:bg-navy-50 hover:text-navy-900'
+                      ? 'bg-primary-50/80 text-primary-700'
+                      : 'text-navy-600 hover:bg-navy-100/80 hover:text-navy-900'
                   }`}
                 >
                   {isActive && (
@@ -120,7 +120,7 @@ export function Layout() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className="font-medium block">{label}</span>
-                    <span className={`text-xs block truncate ${isActive ? 'text-primary-600/80' : 'text-navy-400'}`}>
+                    <span className={`text-caption block truncate ${isActive ? 'text-primary-600/90' : 'text-navy-400'}`}>
                       {desc}
                     </span>
                   </div>
@@ -134,16 +134,16 @@ export function Layout() {
         </nav>
 
         {/* User section */}
-        <div className="p-4 border-t border-navy-100 bg-gradient-to-b from-navy-50/50 to-white">
-          <div className="flex items-center gap-3 px-3 py-3 mb-3 rounded-xl bg-white border border-navy-200 shadow-sm">
+        <div className="p-4 border-t border-navy-200/60">
+          <div className="flex items-center gap-3 px-3 py-3 mb-3 rounded-xl bg-navy-50/60 border border-navy-200/60">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-600">
               <User className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold text-navy-400 uppercase tracking-wider block">
+              <span className="text-label text-navy-400 block">
                 Logged in as
               </span>
-              <p className="text-sm font-semibold text-navy-900 truncate">{admin?.username}</p>
+              <p className="text-body font-semibold text-navy-900 truncate">{admin?.username}</p>
             </div>
           </div>
           <button
@@ -157,7 +157,7 @@ export function Layout() {
       </aside>
 
       {/* Main content - scrollable, offset by sidebar on desktop */}
-      <main className="min-h-screen overflow-auto lg:ml-72">
+      <main className="min-h-screen overflow-auto lg:ml-72 bg-grid-pattern">
         <div className="p-6 lg:p-8 pt-20 lg:pt-8 max-w-[1600px] mx-auto">
           <Outlet />
         </div>

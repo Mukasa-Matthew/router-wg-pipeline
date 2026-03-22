@@ -51,25 +51,25 @@ export function Modal({ open, onClose, title, children, size = 'md', icon }: Mod
     >
       <div
         ref={contentRef}
-        className={`w-full ${sizeClass} rounded-2xl bg-white shadow-elevated border border-navy-200 max-h-[90vh] overflow-hidden flex flex-col animate-fade-in`}
+        className={`w-full ${sizeClass} rounded-2xl bg-white shadow-elevated border border-navy-200/80 max-h-[90vh] overflow-hidden flex flex-col animate-fade-in`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b border-navy-200 shrink-0">
+        <div className="flex items-center justify-between p-6 border-b border-navy-200/80 shrink-0">
           <h2
             id="modal-title"
-            className="text-lg font-bold text-navy-900 flex items-center gap-3"
+            className="font-display font-semibold text-title text-navy-900 flex items-center gap-3"
           >
             {icon && (
-              <div className="p-2 rounded-lg bg-primary-50 text-primary-600">{icon}</div>
+              <div className="p-2 rounded-xl bg-primary-50 text-primary-600">{icon}</div>
             )}
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-navy-100 border border-navy-300 text-navy-700 hover:bg-navy-200 transition"
+            className="p-2 rounded-lg bg-navy-100 text-navy-600 hover:bg-navy-200 transition"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" strokeWidth={2} />
           </button>
         </div>
         <div className="overflow-auto flex-1">{children}</div>

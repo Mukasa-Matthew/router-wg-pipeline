@@ -161,8 +161,8 @@ export function RouterDetailPage() {
     <div className="space-y-6">
       {/* Overview cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-navy-200 bg-white p-5 shadow-card">
-          <h3 className="text-sm font-medium text-navy-500 mb-3">Router Info</h3>
+        <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+          <h3 className="text-label text-navy-500 mb-3">Router Info</h3>
           <dl className="space-y-2 text-sm">
             <div>
               <dt className="text-navy-500">Location</dt>
@@ -243,9 +243,9 @@ export function RouterDetailPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-navy-200 bg-white p-5 shadow-card">
-          <h3 className="text-sm font-medium text-navy-500 mb-3 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-primary-500" />
+        <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+          <h3 className="text-label text-navy-500 mb-3 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-primary-500" strokeWidth={2} />
             WireGuard
           </h3>
           <dl className="space-y-2 text-sm">
@@ -335,9 +335,9 @@ export function RouterDetailPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-navy-200 bg-white p-5 shadow-card">
-          <h3 className="text-sm font-medium text-navy-500 mb-3 flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-primary-500" />
+        <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+          <h3 className="text-label text-navy-500 mb-3 flex items-center gap-2">
+            <Cpu className="w-4 h-4 text-primary-500" strokeWidth={2} />
             Router Health
           </h3>
           {!isOnline ? (
@@ -384,9 +384,9 @@ export function RouterDetailPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-navy-200 bg-white p-5 shadow-card">
-          <h3 className="text-sm font-medium text-navy-500 mb-3 flex items-center gap-2">
-            <Users className="w-4 h-4 text-primary-500" />
+        <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+          <h3 className="text-label text-navy-500 mb-3 flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary-500" strokeWidth={2} />
             {connectionStats?.hotspotEnabled ? 'Active Users' : 'Devices on Network'}
           </h3>
           {!isOnline ? (
@@ -398,12 +398,12 @@ export function RouterDetailPage() {
             </div>
           ) : (
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-navy-900">
+              <span className="font-display font-semibold text-display text-navy-900">
                 {connectionStats?.hotspotEnabled
                   ? (connectionStats.hotspotUsers?.length ?? 0)
                   : (connectionStats?.dhcpLeaseCount ?? 0)}
               </span>
-              <span className="text-sm text-navy-500">
+              <span className="text-body text-navy-500">
                 {connectionStats?.hotspotEnabled ? 'users logged in' : 'devices connected'}
               </span>
             </div>
@@ -428,9 +428,9 @@ export function RouterDetailPage() {
 
       {/* Connected users (only when hotspot enabled, we have per-user data) */}
       {isOnline && connectionStats?.hotspotEnabled && connectionStats.hotspotUsers.length > 0 && (
-        <div className="rounded-2xl border border-navy-200 bg-white p-6 shadow-card">
-          <h3 className="font-semibold text-navy-900 mb-4 flex items-center gap-2">
-            <User className="w-5 h-5 text-primary-500" />
+        <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+          <h3 className="font-display font-semibold text-title text-navy-900 mb-4 flex items-center gap-2">
+            <User className="w-5 h-5 text-primary-500" strokeWidth={2} />
             Connected Devices ({connectionStats.hotspotUsers.length})
           </h3>
           <div className="overflow-x-auto">
@@ -461,9 +461,9 @@ export function RouterDetailPage() {
       )}
 
       {/* Hotspot profiles */}
-      <div className="rounded-2xl border border-navy-200 bg-white p-6 shadow-card">
-        <h3 className="font-semibold text-navy-900 mb-4 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-primary-500" />
+      <div className="rounded-2xl border border-navy-200/80 bg-white p-6 shadow-card">
+        <h3 className="font-display font-semibold text-title text-navy-900 mb-4 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-primary-500" strokeWidth={2} />
           Hotspot Profiles ({profiles.length})
         </h3>
         {profiles.length === 0 ? (
