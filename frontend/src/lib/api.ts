@@ -75,6 +75,7 @@ export const api = {
       request<{ success: boolean }>(`/routers/${id}`, { method: 'DELETE' }),
     stats: (id: number) => request<RouterStats>(`/routers/${id}/stats`),
     users: (id: number) => request<HotspotUser[]>(`/routers/${id}/users`),
+    connectionStats: (id: number) => request<ConnectionStats>(`/routers/${id}/connection-stats`),
     reboot: (id: number) =>
       request<{ success: boolean }>(`/routers/${id}/reboot`, {
         method: 'POST',
@@ -260,6 +261,12 @@ export interface RouterStats {
   };
   identity?: { name?: string };
   cached?: boolean;
+}
+
+export interface ConnectionStats {
+  hotspotEnabled: boolean;
+  hotspotUsers: HotspotUser[];
+  dhcpLeaseCount: number;
 }
 
 export interface HotspotUser {

@@ -245,6 +245,31 @@ async function getDhcpLeasesSlim(router) {
 }
 
 /**
+ * Get hotspot enabled status and connection stats.
+ * For analytics: show hotspot users when enabled, DHCP count when disabled.
+ * Runs sequentially to avoid UNREGISTEREDTAG on shared connection.
+ */
+async function getConnectionStats(router) {
+  return withRouterLock(router, async () => {
+    const conn = await connect(router);
+    try {
+      const hotspotRows = await withTimeout(conn.write('/ip/hotspot/print')).catch(() => []);
+      const activeUsers = await withTimeout(conn.write('/ip/hotspot/active/print', ['=.proplist=user,address,mac-address,uptime'])).catch(() => []);
+      const dhcpLeases = await withTimeout(conn.write('/ip/dhcp-server/lease/print', ['=.proplist=address'])).catch(() => []);
+      const arr = Array.isArray(hotspotRows) ? hotspotRows : [];
+      const disabled = arr.some((h) => (h.flags || '').includes('X') || String(h.disabled || '').toLowerCase() === 'true');
+      return {
+        hotspotEnabled: arr.length === 0 ? true : !disabled,
+        hotspotUsers: Array.isArray(activeUsers) ? activeUsers : [],
+        dhcpLeaseCount: Array.isArray(dhcpLeases) ? dhcpLeases.length : 0,
+      };
+    } finally {
+      conn.close();
+    }
+  });
+}
+
+/**
  * Get hotspot users (slim) so we can map username -> limit-uptime.
  * Uses connection queue to avoid UNREGISTEREDTAG.
  */
@@ -591,6 +616,7 @@ module.exports = {
   getRouterStats,
   getActiveHotspotUsers,
   getActiveHotspotUsersSlim,
+  getConnectionStats,
   getDhcpLeasesSlim,
   getHotspotUsersSlim,
   parseRosDurationToSeconds,

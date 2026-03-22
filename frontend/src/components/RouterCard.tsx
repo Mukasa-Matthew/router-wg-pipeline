@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Wifi,
   MapPin,
@@ -12,10 +12,12 @@ import {
   ExternalLink,
   Loader2,
 } from 'lucide-react';
-import type { Router } from '../lib/api';
+import type { Router, ConnectionStats } from '../lib/api';
 import { api } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
+
+const POLL_INTERVAL_MS = 25000;
 
 interface RouterCardProps {
   router: Router;
@@ -33,28 +35,37 @@ export function RouterCard({
   const toast = useToast();
   const { confirm } = useConfirm();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [users, setUsers] = useState<number | null>(null);
+  const [connectionStats, setConnectionStats] = useState<ConnectionStats | null>(null);
   const [pendingExport, setPendingExport] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [mikhmonLoading, setMikhmonLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const isOnline = router.status === 'online';
   const isTunnelFailed = router.status === 'tunnel_failed';
 
-  async function loadUsers() {
-    if (users !== null) return;
+  const loadStats = useCallback(async () => {
+    if (!isOnline) return;
     try {
-      const [u, pending] = await Promise.all([
-        api.routers.users(router.id),
+      const [stats, pending] = await Promise.all([
+        api.routers.connectionStats(router.id),
         api.vouchers.pendingCount(router.id),
       ]);
-      setUsers(Array.isArray(u) ? u.length : 0);
+      setConnectionStats(stats);
       setPendingExport(pending.count);
+      setHasLoaded(true);
     } catch {
-      setUsers(0);
+      setConnectionStats(null);
       setPendingExport(0);
+      setHasLoaded(true);
     }
-  }
+  }, [router.id, isOnline]);
+
+  useEffect(() => {
+    if (!hasLoaded || !isOnline) return;
+    const id = setInterval(loadStats, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [hasLoaded, isOnline, loadStats]);
 
   async function handleReboot() {
     setMenuOpen(false);
@@ -110,7 +121,7 @@ export function RouterCard({
       onClick={() => onManage(router.id)}
       onKeyDown={(e) => e.key === 'Enter' && onManage(router.id)}
       className="rounded-2xl border border-navy-200 bg-white p-6 shadow-card hover:shadow-card-hover hover:border-primary-300/50 transition-all duration-200 group cursor-pointer"
-      onMouseEnter={loadUsers}
+      onMouseEnter={() => !hasLoaded && loadStats()}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
@@ -213,7 +224,11 @@ export function RouterCard({
         )}
         <span className="flex items-center gap-2 text-navy-600">
           <Users className="w-4 h-4 text-navy-400 shrink-0" />
-          {users !== null ? `${users} users` : '—'}
+          {connectionStats
+            ? connectionStats.hotspotEnabled
+              ? `${connectionStats.hotspotUsers.length} users logged in`
+              : `${connectionStats.dhcpLeaseCount} devices connected`
+            : '—'}
         </span>
       </div>
 

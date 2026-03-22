@@ -391,6 +391,21 @@ router.get('/:id/users', async (req, res) => {
 });
 
 /**
+ * GET /api/routers/:id/connection-stats - Hotspot users + DHCP count for analytics.
+ * When hotspot enabled: use hotspotUsers. When disabled: use dhcpLeaseCount (target market size).
+ */
+router.get('/:id/connection-stats', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM routers WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Router not found' });
+    const stats = await mikrotikService.getConnectionStats(rows[0]);
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/routers/:id/reboot - Reboot router
  * Fire-and-forget: router disconnects on reboot, so we return success immediately.
  * Immediately set status to offline so dashboard shows it; status check will set online when it comes back.

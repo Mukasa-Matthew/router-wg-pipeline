@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import {
   Wifi,
@@ -15,7 +15,7 @@ import {
   User,
   AlertCircle,
 } from 'lucide-react';
-import { api, type Router, type TunnelStatus, type HotspotProfile, type HotspotUser, type RouterStats } from '../lib/api';
+import { api, type Router, type TunnelStatus, type HotspotProfile, type HotspotUser, type RouterStats, type ConnectionStats } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
 
 type OutletContext = {
@@ -33,7 +33,7 @@ export function RouterDetailPage() {
   const { router, tunnelStatus, openVouchers, refreshVouchers, refreshRouter } = useOutletContext<OutletContext>();
   const routerId = parseInt(id || '0', 10);
   const [profiles, setProfiles] = useState<HotspotProfile[]>([]);
-  const [users, setUsers] = useState<HotspotUser[] | null>(null);
+  const [connectionStats, setConnectionStats] = useState<ConnectionStats | null>(null);
   const [stats, setStats] = useState<RouterStats | null>(null);
   const [pendingExport, setPendingExport] = useState<number | null>(null);
   const [mikhmonLoading, setMikhmonLoading] = useState(false);
@@ -60,25 +60,34 @@ export function RouterDetailPage() {
     api.routers.profiles.list(routerId).then(setProfiles).catch(() => setProfiles([]));
   }, [routerId]);
 
-  useEffect(() => {
+  const fetchConnectionData = useCallback(async () => {
     if (!routerId || !isOnline) return;
     setLoadingUsers(true);
     setLoadingStats(true);
-    Promise.all([
-      api.routers.users(routerId).catch(() => []),
-      api.routers.stats(routerId).catch(() => null),
-      api.vouchers.pendingCount(routerId).catch(() => ({ count: 0 })),
-    ])
-      .then(([u, s, p]) => {
-        setUsers(Array.isArray(u) ? u : []);
-        setStats(s || null);
-        setPendingExport(p?.count ?? 0);
-      })
-      .finally(() => {
-        setLoadingUsers(false);
-        setLoadingStats(false);
-      });
-  }, [routerId, isOnline, refreshVouchers]);
+    try {
+      const [connStats, s, p] = await Promise.all([
+        api.routers.connectionStats(routerId).catch(() => null),
+        api.routers.stats(routerId).catch(() => null),
+        api.vouchers.pendingCount(routerId).catch(() => ({ count: 0 })),
+      ]);
+      setConnectionStats(connStats);
+      setStats(s || null);
+      setPendingExport(p?.count ?? 0);
+    } finally {
+      setLoadingUsers(false);
+      setLoadingStats(false);
+    }
+  }, [routerId, isOnline]);
+
+  useEffect(() => {
+    fetchConnectionData();
+  }, [fetchConnectionData, refreshVouchers]);
+
+  useEffect(() => {
+    if (!isOnline) return;
+    const id = setInterval(fetchConnectionData, 25000);
+    return () => clearInterval(id);
+  }, [isOnline, fetchConnectionData]);
 
   async function openMikHmon() {
     if (!tunnelStatus?.tunnel_up) {
@@ -378,7 +387,7 @@ export function RouterDetailPage() {
         <div className="rounded-2xl border border-navy-200 bg-white p-5 shadow-card">
           <h3 className="text-sm font-medium text-navy-500 mb-3 flex items-center gap-2">
             <Users className="w-4 h-4 text-primary-500" />
-            Active Users
+            {connectionStats?.hotspotEnabled ? 'Active Users' : 'Devices on Network'}
           </h3>
           {!isOnline ? (
             <p className="text-sm text-navy-500">Router offline</p>
@@ -389,8 +398,14 @@ export function RouterDetailPage() {
             </div>
           ) : (
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-navy-900">{users?.length ?? 0}</span>
-              <span className="text-sm text-navy-500">connected</span>
+              <span className="text-2xl font-bold text-navy-900">
+                {connectionStats?.hotspotEnabled
+                  ? (connectionStats.hotspotUsers?.length ?? 0)
+                  : (connectionStats?.dhcpLeaseCount ?? 0)}
+              </span>
+              <span className="text-sm text-navy-500">
+                {connectionStats?.hotspotEnabled ? 'users logged in' : 'devices connected'}
+              </span>
             </div>
           )}
           <div className="mt-3 flex gap-2">
@@ -411,12 +426,12 @@ export function RouterDetailPage() {
         </div>
       </div>
 
-      {/* Connected users */}
-      {isOnline && users && users.length > 0 && (
+      {/* Connected users (only when hotspot enabled, we have per-user data) */}
+      {isOnline && connectionStats?.hotspotEnabled && connectionStats.hotspotUsers.length > 0 && (
         <div className="rounded-2xl border border-navy-200 bg-white p-6 shadow-card">
           <h3 className="font-semibold text-navy-900 mb-4 flex items-center gap-2">
             <User className="w-5 h-5 text-primary-500" />
-            Connected Devices ({users.length})
+            Connected Devices ({connectionStats.hotspotUsers.length})
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[400px] text-sm">
@@ -430,7 +445,7 @@ export function RouterDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u, i) => (
+                {connectionStats.hotspotUsers.map((u, i) => (
                   <tr key={i} className="border-b border-navy-100 last:border-0 hover:bg-navy-50/50">
                     <td className="py-3 px-4 font-medium text-navy-900">{u.user || '—'}</td>
                     <td className="py-3 px-4 font-mono text-navy-600 text-xs">{u.address || '—'}</td>
