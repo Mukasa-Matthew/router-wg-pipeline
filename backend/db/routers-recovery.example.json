@@ -1,0 +1,50 @@
+{
+  "_comment": "Copy to routers-recovery.json, fill wg_private_key from each MikroTik (Interface/WireGuard). Public keys must match sudo wg show wg0. Remove _comment and test_tcp if unused.",
+  "test_tcp": false,
+  "routers": [
+    {
+      "name": "Site 10.10.0.2",
+      "location": "",
+      "wg_ip": "10.10.0.2",
+      "wg_public_key": "srK6WGx2IWXcDPi4Mssu37fTLwvxzx2neMNCcZjABik=",
+      "wg_private_key": "PASTE_PRIVATE_KEY_FROM_MIKROTIK_wg-vps",
+      "username": "YOUR_API_USER",
+      "password": "YOUR_API_PASSWORD",
+      "api_port": 8728,
+      "lan_ip": "10.10.0.2"
+    },
+    {
+      "name": "Site 10.10.0.3",
+      "location": "",
+      "wg_ip": "10.10.0.3",
+      "wg_public_key": "X00hxYgvPFiXxYprGCw7cKAavzhIQckkofVNO6GBIDs=",
+      "wg_private_key": "PASTE_PRIVATE_KEY_FROM_MIKROTIK_wg-vps",
+      "username": "YOUR_API_USER",
+      "password": "YOUR_API_PASSWORD",
+      "api_port": 8728,
+      "lan_ip": "10.10.0.3"
+    },
+    {
+      "name": "Site 10.10.0.4",
+      "location": "",
+      "wg_ip": "10.10.0.4",
+      "wg_public_key": "eLJxIc8mrXq4cFhB0X7+Tx5sI+0ToPaThRQfNrJtNno=",
+      "wg_private_key": "PASTE_PRIVATE_KEY_FROM_MIKROTIK_wg-vps",
+      "username": "YOUR_API_USER",
+      "password": "YOUR_API_PASSWORD",
+      "api_port": 8728,
+      "lan_ip": "10.10.0.4"
+    },
+    {
+      "name": "Site 10.10.0.5",
+      "location": "",
+      "wg_ip": "10.10.0.5",
+      "wg_public_key": "b7xHPhz6vUevLYsjd1QmAYFcIRACsV58nSYqOSCUdxw=",
+      "wg_private_key": "PASTE_PRIVATE_KEY_FROM_MIKROTIK_wg-vps",
+      "username": "YOUR_API_USER",
+      "password": "YOUR_API_PASSWORD",
+      "api_port": 8728,
+      "lan_ip": "10.10.0.5"
+    }
+  ]
+}

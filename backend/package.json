@@ -10,7 +10,8 @@
     "seed": "node db/seed.js",
     "db:init": "node db/init.js",
     "setup": "node db/init.js && node db/seed.js",
-    "migrate": "node db/migrate.js"
+    "migrate": "node db/migrate.js",
+    "recover-routers": "node db/recover-router-tunnel.js"
   },
   "keywords": [
     "mikrotik",

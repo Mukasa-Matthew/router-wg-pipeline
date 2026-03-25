@@ -741,7 +741,7 @@ router.post('/:id/profiles', async (req, res) => {
 
 /**
  * POST /api/routers/:id/profiles/fix-all - Fix all profiles on MikroTik
- * Sets session-timeout=0s, keepalive-timeout=none, add-mac-cookie=yes
+ * Pushes session-timeout from DB (session_timeout or validity), keepalive 2m, idle 10m (or DB), mac-cookie.
  */
 router.post('/:id/profiles/fix-all', async (req, res) => {
   try {
@@ -757,7 +757,11 @@ router.post('/:id/profiles/fix-all', async (req, res) => {
     let fixed = 0;
     for (const p of profileRows) {
       try {
-        await mikrotikService.fixProfileOnMikrotik(router, p.profile_name);
+        await mikrotikService.fixProfileOnMikrotik(router, p.profile_name, {
+          session_timeout: p.session_timeout,
+          validity: p.validity,
+          idle_timeout: p.idle_timeout,
+        });
         fixed++;
       } catch (err) {
         console.warn(`[Router ${routerId}] Failed to fix profile ${p.profile_name}:`, err.message);
