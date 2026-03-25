@@ -553,14 +553,18 @@ async function deleteHotspotProfile(router, profileName) {
 
 /**
  * Generate vouchers on MikroTik (hotspot users)
- * ALWAYS sets limit-uptime on each voucher - profiles have session-timeout=0s.
- * Uses connection queue + retry to handle UNREGISTEREDTAG (flaky MikroTik API).
+ * By default sets limit-uptime (counts mainly while connected — pauses when offline).
+ * Set HOTSPOT_VOUCHER_LIMIT_UPTIME=0 in .env to omit limit-uptime and rely on the
+ * profile's session-timeout only (test mac-cookie / reconnect behaviour — not strict wall-clock).
+ * See docs/WALL-CLOCK-VOUCHERS.md.
  */
 async function generateVouchersOnMikrotik(router, profileName, count, prefix = 'v', validity) {
   const limitUptime = validityToUptime(validity);
   if (!limitUptime) {
     throw new Error(`Invalid validity "${validity}" - must be e.g. 1d, 6h, 1w, 30d`);
   }
+
+  const useLimitUptime = String(process.env.HOTSPOT_VOUCHER_LIMIT_UPTIME || '1').trim() !== '0';
 
   return withRouterLock(router, () =>
     withMikrotikRetry(router, async (conn) => {
@@ -572,8 +576,10 @@ async function generateVouchersOnMikrotik(router, profileName, count, prefix = '
           `=password=${username}`,
           `=profile=${profileName}`,
           `=comment=${profileName} Voucher`,
-          `=limit-uptime=${limitUptime}`,
         ];
+        if (useLimitUptime) {
+          params.push(`=limit-uptime=${limitUptime}`);
+        }
         await conn.write('/ip/hotspot/user/add', params);
         vouchers.push({ username, password: username, profile: profileName });
       }
