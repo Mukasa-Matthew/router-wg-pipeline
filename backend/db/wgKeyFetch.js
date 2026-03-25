@@ -12,25 +12,55 @@ function normKey(k) {
   return String(k || '').trim();
 }
 
+/** Turn node-routeros / socket errors into something actionable. */
+function formatRouterApiError(err, host, apiPort) {
+  const errno = err && err.errno;
+  const code = err && err.code;
+  const msg = (err && err.message) || String(err);
+  const bits = [msg.replace(/^RosException\s*/i, '').trim() || 'RosException'];
+  if (errno !== undefined && errno !== null) bits.push(`errno=${errno}`);
+  if (code) bits.push(String(code));
+  let out = bits.filter(Boolean).join(' | ');
+  if (errno === -111 || code === 'ECONNREFUSED' || /ECONNREFUSED/i.test(msg)) {
+    out +=
+      ` — nothing listening on ${host}:${apiPort} from this host (WireGuard can be up while API is off or firewalled). ` +
+      `On MikroTik: /ip service print; /ip service enable api; /ip service set api address=10.10.0.0/24 port=8728 (or 0.0.0.0/0); ` +
+      `firewall: accept chain=input protocol=tcp dst-port=8728 in-interface=wg-vps. ` +
+      `Probe from VPS: nc -zv ${host} ${apiPort}. ` +
+      `Workaround: copy private key from Winbox → WireGuard interface → paste wg_private_key in JSON, run recovery without --fetch-keys.`;
+  }
+  return out;
+}
+
+function isOurSemanticError(message) {
+  return (
+    message === 'API connect timeout' ||
+    message === 'API print timeout' ||
+    (message && message.includes('Matched interface')) ||
+    (message && message.includes('No WireGuard row'))
+  );
+}
+
 /**
  * @returns {Promise<string>}
  */
 async function fetchWireGuardPrivateKey(host, user, pass, port, expectedPublicKey) {
+  const apiPort = port || 8728;
   const conn = new RouterOSAPI({
     host,
     user,
     password: pass,
-    port: port || 8728,
+    port: apiPort,
     timeout: Math.ceil(TIMEOUT_MS / 1000),
   });
   conn.on('error', () => {});
-  await Promise.race([
-    conn.connect(),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('API connect timeout')), TIMEOUT_MS)
-    ),
-  ]);
   try {
+    await Promise.race([
+      conn.connect(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('API connect timeout')), TIMEOUT_MS)
+      ),
+    ]);
     const rows = await Promise.race([
       conn.write('/interface/wireguard/print', ['=.proplist=name,private-key,public-key']),
       new Promise((_, reject) =>
@@ -63,6 +93,10 @@ async function fetchWireGuardPrivateKey(host, user, pass, port, expectedPublicKe
     throw new Error(
       `No WireGuard row with this public-key. Interfaces: ${names || 'none'}. Check wg_public_key in JSON.`
     );
+  } catch (err) {
+    const m = err?.message || '';
+    if (isOurSemanticError(m)) throw err;
+    throw new Error(formatRouterApiError(err, host, apiPort));
   } finally {
     try {
       conn.close();
