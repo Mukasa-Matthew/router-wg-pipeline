@@ -1,5 +1,5 @@
 {
-  "_comment": "Copy to routers-recovery.json, fill wg_private_key from each MikroTik (Interface/WireGuard). Public keys must match sudo wg show wg0. Remove _comment and test_tcp if unused.",
+  "_comment": "Copy to routers-recovery.json. Set real API password per router (and username if not admin). wg_public_key must match sudo wg show wg0. Omit wg_private_key or leave placeholder — then run: node db/recover-router-tunnel.js db/routers-recovery.json --fetch-keys",
   "test_tcp": false,
   "routers": [
     {

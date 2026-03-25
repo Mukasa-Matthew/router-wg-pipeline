@@ -5,17 +5,18 @@
  * Usage on the VPS:
  *   cd /var/www/html/routerhub/backend
  *   cp db/routers-recovery.example.json db/routers-recovery.json
- *   nano db/routers-recovery.json   # fill wg_private_key, username, password, names
- *   node db/recover-router-tunnel.js db/routers-recovery.json
+ *   nano db/routers-recovery.json   # real API user/password; wg_public_key from: sudo wg show wg0
+ *   node db/recover-router-tunnel.js db/routers-recovery.json --fetch-keys
  *   pm2 restart routerhub --update-env
  *
- * Private key: MikroTik → Interfaces → WireGuard (e.g. wg-vps) → copy Private key
- * Public key must match: wg show wg0 (peer line) for that wg_ip.
+ * --fetch-keys: pull wg_private_key from each router via API (run on VPS; needs API on 10.10.0.x).
+ * Vouchers/profiles/revenue need a MySQL backup to restore.
  */
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
 const mysql = require('mysql2/promise');
+const { fetchWireGuardPrivateKey, needsPrivateKeyFetch } = require('./wgKeyFetch');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 function requireNonEmpty(v, field) {
@@ -42,7 +43,9 @@ function testTcp(host, port, ms = 4000) {
 }
 
 async function main() {
-  const jsonPath = path.resolve(process.argv[2] || path.join(__dirname, 'routers-recovery.json'));
+  const argv = process.argv.slice(2).filter((a) => a !== '--fetch-keys');
+  const fetchKeys = process.argv.includes('--fetch-keys');
+  const jsonPath = path.resolve(argv[0] || path.join(__dirname, 'routers-recovery.json'));
   if (!fs.existsSync(jsonPath)) {
     console.error('File not found:', jsonPath);
     console.error('Copy db/routers-recovery.example.json to db/routers-recovery.json and edit it.');
@@ -74,9 +77,27 @@ async function main() {
       const name = requireNonEmpty(r.name, 'name');
       const wg_ip = requireNonEmpty(r.wg_ip, 'wg_ip');
       const wg_public_key = requireNonEmpty(r.wg_public_key, 'wg_public_key');
-      const wg_private_key = requireNonEmpty(r.wg_private_key, 'wg_private_key');
       const username = requireNonEmpty(r.username, 'username');
       const password = requireNonEmpty(r.password, 'password');
+
+      let wg_private_key = (r.wg_private_key && String(r.wg_private_key).trim()) || '';
+      if (needsPrivateKeyFetch(wg_private_key)) {
+        if (!fetchKeys) {
+          throw new Error(
+            `Router "${name}" (${wg_ip}): wg_private_key missing or placeholder. ` +
+              `Run again with --fetch-keys (from VPS, API on ${wg_ip}:8728), or: node db/fetch-wg-private-keys.js`
+          );
+        }
+        console.log(`Fetching WG private key via API: ${wg_ip} (${name})...`);
+        wg_private_key = await fetchWireGuardPrivateKey(
+          wg_ip,
+          username,
+          password,
+          parseInt(r.api_port, 10) || 8728,
+          wg_public_key
+        );
+        console.log(`  OK`);
+      }
 
       const api_port = parseInt(r.api_port, 10) || 8728;
       const location = r.location != null ? String(r.location) : '';

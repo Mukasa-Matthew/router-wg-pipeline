@@ -11,7 +11,8 @@
     "db:init": "node db/init.js",
     "setup": "node db/init.js && node db/seed.js",
     "migrate": "node db/migrate.js",
-    "recover-routers": "node db/recover-router-tunnel.js"
+    "recover-routers": "node db/recover-router-tunnel.js",
+    "fetch-wg-keys": "node db/fetch-wg-private-keys.js"
   },
   "keywords": [
     "mikrotik",
