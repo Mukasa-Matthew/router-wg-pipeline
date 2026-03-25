@@ -1,5 +1,5 @@
 {
-  "_comment": "Copy to routers-recovery.json. Set real API password per router (and username if not admin). wg_public_key must match sudo wg show wg0. Omit wg_private_key or leave placeholder — then run: node db/recover-router-tunnel.js db/routers-recovery.json --fetch-keys",
+  "_comment": "Four tunnel IPs: 10.10.0.2, 10.10.0.3, 10.10.0.4, 10.10.0.5 — include all; .3 is often omitted by mistake. Copy to routers-recovery.json. Set API user/password. wg_public_key must match sudo wg show wg0 per peer. wg_private_key: paste from MikroTik WireGuard interface or use --fetch-keys when API reachable.",
   "test_tcp": false,
   "routers": [
     {

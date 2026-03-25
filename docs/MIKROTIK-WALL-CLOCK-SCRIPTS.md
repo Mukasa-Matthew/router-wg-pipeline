@@ -16,7 +16,16 @@ Paste in Terminal:
 /system script remove wctest
 ```
 
-You should see a large number (Unix seconds). If you get an error, upgrade RouterOS or ask on the MikroTik forum before continuing.
+**What you should see:** RouterOS often prints something like `TS=2933w6d13:14:15.617130979` — that is **normal** on RouterOS 7. Per [MikroTik Scripting](https://help.mikrotik.com/docs/display/ROS/Scripting), `[:timestamp]` is **time since 1970-01-01**; the CLI just formats it like a duration. Internally it is **nanoseconds**, not “Unix seconds” as a small integer.
+
+Quick sanity check (should print `time` then `true`):
+
+```ros
+:put [:typeof [:timestamp]]
+:put ([:timestamp] > 0)
+```
+
+If those error, upgrade RouterOS or ask on the MikroTik forum before continuing.
 
 ---
 
@@ -39,11 +48,14 @@ You should see a large number (Unix seconds). If you get an error, upgrade Route
   :if ($p = "3-HRS") do={ :set secs 10800 }
   :if ($p = "12-HOURS") do={ :set secs 43200 }
   :if ($p = "daily") do={ :set secs 86400 }
+  :if ($p = "DAILY-INTERNET") do={ :set secs 86400 }
   :if ($p = "1-WEEK") do={ :set secs 604800 }
-  :if ($p = "MONTHLY") do={ :set secs 2678400 }
+  :if ($p = "WEEKLY") do={ :set secs 604800 }
+  :if ($p = "MONTHLY") do={ :set secs 2592000 }
   :if ($p = "test") do={ :set secs 3600 }
   :if ($secs = 0) do={ :return }
-  :local exp ([:timestamp] + $secs)
+  :local ns 1000000000
+  :local exp ([:timestamp] + ($secs * $ns))
   :local newc $c
   :if ([:len $newc] > 0) do={ :set newc ($newc . "|") }
   :set newc ($newc . "WCEXP=" . $exp)
@@ -53,8 +65,11 @@ You should see a large number (Unix seconds). If you get an error, upgrade Route
 }
 ```
 
-**Profiles covered:** `3-HRS`, `12-HOURS`, `daily`, `1-WEEK`, `MONTHLY`, `test`.  
-If you use **other profile names**, add more `:if ($p = "YourProfile") do={ :set secs ... }` lines (seconds: 1h=3600, 6h=21600, 12h=43200, 1d=86400, 7d=604800, 30d≈2592000).
+**Profiles covered:** `3-HRS`, `12-HOURS`, `daily`, `DAILY-INTERNET` (24h), `1-WEEK`, `WEEKLY`, `MONTHLY` (30d = `4w2d`), `test`.  
+`MONTHLY` here is **2592000** s (30 days). If your plan is **31 days**, use **2678400** instead.  
+If you use **other profile names**, add more `:if ($p = "YourProfile") do={ :set secs ... }` lines (seconds: 1h=3600, 6h=21600, 12h=43200, 1d=86400, 7d=604800, 30d=2592000, 31d=2678400).
+
+**Earlier doc revision:** If you already ran an on-login script that used `[:timestamp] + $secs` without multiplying seconds by `1000000000`, stored `WCEXP=` values can be wrong. Strip `WCEXP=…` from those users’ comments (or issue new codes) before relying on the version above.
 
 ---
 
@@ -107,13 +122,15 @@ If you use **other profile names**, add more `:if ($p = "YourProfile") do={ :set
 
 ## 4) Attach on-login to each voucher profile
 
-Repeat for **every profile** used for paid vouchers (`3-HRS`, `12-HOURS`, `daily`, `1-WEEK`, `MONTHLY`, `test`, …):
+Repeat for **every hotspot user profile** used for paid vouchers (voucher **profile** name must match an `:if ($p = "...")` line in the script):
 
 ```ros
 /ip hotspot user profile set [find name="3-HRS"] on-login=hs-wall-expiry-onlogin
 /ip hotspot user profile set [find name="12-HOURS"] on-login=hs-wall-expiry-onlogin
 /ip hotspot user profile set [find name="daily"] on-login=hs-wall-expiry-onlogin
+/ip hotspot user profile set [find name="DAILY-INTERNET"] on-login=hs-wall-expiry-onlogin
 /ip hotspot user profile set [find name="1-WEEK"] on-login=hs-wall-expiry-onlogin
+/ip hotspot user profile set [find name="WEEKLY"] on-login=hs-wall-expiry-onlogin
 /ip hotspot user profile set [find name="MONTHLY"] on-login=hs-wall-expiry-onlogin
 /ip hotspot user profile set [find name="test"] on-login=hs-wall-expiry-onlogin
 ```
@@ -132,7 +149,7 @@ Repeat for **every profile** used for paid vouchers (`3-HRS`, `12-HOURS`, `daily
 ## 6) Quick test (3h profile)
 
 1. Create a test hotspot user on profile **`3-HRS`**, no `limit-uptime`.
-2. Log in once → comment should gain **`WCEXP=<number>`** (`/ip hotspot user print detail where name="..."`).
+2. Log in once → comment should gain **`WCEXP=<number>`** (nanoseconds since Unix epoch; a long decimal string — not the `2933w…` display form) (`/ip hotspot user print detail where name="..."`).
 3. Optional: temporarily set expiry in the past in comment (edit comment digits) → within 1 minute user should be disabled and kicked.
 
 ---

@@ -11,6 +11,8 @@
  *
  * --fetch-keys: pull wg_private_key from each router via API (run on VPS; needs API on 10.10.0.x).
  * Vouchers/profiles/revenue need a MySQL backup to restore.
+ *
+ * You can list every site in routers-recovery.json; wg_ips already in `routers` are skipped — only missing rows are INSERTed.
  */
 const fs = require('fs');
 const path = require('path');
@@ -43,8 +45,9 @@ function testTcp(host, port, ms = 4000) {
 }
 
 async function main() {
-  const argv = process.argv.slice(2).filter((a) => a !== '--fetch-keys');
+  const argv = process.argv.slice(2).filter((a) => a !== '--fetch-keys' && a !== '--plan-only');
   const fetchKeys = process.argv.includes('--fetch-keys');
+  const planOnly = process.argv.includes('--plan-only');
   const jsonPath = path.resolve(argv[0] || path.join(__dirname, 'routers-recovery.json'));
   if (!fs.existsSync(jsonPath)) {
     console.error('File not found:', jsonPath);
@@ -73,6 +76,29 @@ async function main() {
     const [existing] = await conn.query('SELECT wg_ip FROM routers WHERE wg_ip IS NOT NULL');
     const used = new Set((existing || []).map((r) => r.wg_ip));
 
+    const planSkip = [];
+    const planInsert = [];
+    for (const r of list) {
+      const wip = r.wg_ip != null ? String(r.wg_ip).trim() : '';
+      if (!wip) continue;
+      const label = (r.name != null && String(r.name).trim()) || wip;
+      if (used.has(wip)) planSkip.push(`${wip} (${label})`);
+      else planInsert.push(`${wip} (${label})`);
+    }
+    console.log('--- Recovery plan (vs routers.wg_ip) ---');
+    if (planSkip.length) console.log(`Skip (already in database): ${planSkip.join(', ')}`);
+    if (planInsert.length) console.log(`Will INSERT (missing): ${planInsert.join(', ')}`);
+    else console.log('Nothing to insert — every wg_ip in this file is already in the database.');
+    console.log('---\n');
+    if (planOnly) {
+      console.log('--plan-only: no changes made.');
+      return;
+    }
+
+    let inserted = 0;
+    let skipped = 0;
+    let failed = 0;
+
     for (const r of list) {
       const name = requireNonEmpty(r.name, 'name');
       const wg_ip = requireNonEmpty(r.wg_ip, 'wg_ip');
@@ -83,65 +109,74 @@ async function main() {
       const location = r.location != null ? String(r.location) : '';
       const lan_ip = (r.lan_ip && String(r.lan_ip).trim()) || wg_ip;
 
-      if (used.has(wg_ip)) {
-        console.warn(`Skip (already in DB): ${name} ${wg_ip}`);
-        continue;
-      }
-
-      let wg_private_key = (r.wg_private_key && String(r.wg_private_key).trim()) || '';
-      if (needsPrivateKeyFetch(wg_private_key)) {
-        if (!fetchKeys) {
-          throw new Error(
-            `Router "${name}" (${wg_ip}): wg_private_key missing or placeholder. ` +
-              `Run again with --fetch-keys (from VPS, API on ${wg_ip}:8728), or: node db/fetch-wg-private-keys.js`
-          );
+      try {
+        if (used.has(wg_ip)) {
+          skipped += 1;
+          console.warn(`Skip (already in DB): ${name} ${wg_ip}`);
+          continue;
         }
-        console.log(`Fetching WG private key via API: ${wg_ip} (${name})...`);
-        wg_private_key = await fetchWireGuardPrivateKey(
-          wg_ip,
-          username,
-          password,
-          api_port,
-          wg_public_key
-        );
-        console.log(`  OK`);
-      }
 
-      const [result] = await conn.query(
-        `INSERT INTO routers (
+        let wg_private_key = (r.wg_private_key && String(r.wg_private_key).trim()) || '';
+        if (needsPrivateKeyFetch(wg_private_key)) {
+          if (!fetchKeys) {
+            throw new Error(
+              `Router "${name}" (${wg_ip}): wg_private_key missing or placeholder. ` +
+                `Run again with --fetch-keys (from VPS, API on ${wg_ip}:8728), or: node db/fetch-wg-private-keys.js`
+            );
+          }
+          console.log(`Fetching WG private key via API: ${wg_ip} (${name})...`);
+          wg_private_key = await fetchWireGuardPrivateKey(
+            wg_ip,
+            username,
+            password,
+            api_port,
+            wg_public_key
+          );
+          console.log(`  OK`);
+        }
+
+        const [result] = await conn.query(
+          `INSERT INTO routers (
           name, location, lan_ip, initial_ip, api_port, username, password,
           wg_ip, wg_public_key, wg_private_key, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'offline')`,
-        [
-          name,
-          location,
-          lan_ip,
-          lan_ip,
-          api_port,
-          username,
-          password,
-          wg_ip,
-          wg_public_key,
-          wg_private_key,
-        ]
-      );
-      const routerId = result.insertId;
-      used.add(wg_ip);
+          [
+            name,
+            location,
+            lan_ip,
+            lan_ip,
+            api_port,
+            username,
+            password,
+            wg_ip,
+            wg_public_key,
+            wg_private_key,
+          ]
+        );
+        const routerId = result.insertId;
+        used.add(wg_ip);
 
-      await conn.query(
-        `INSERT INTO wireguard_peers (router_id, public_key, private_key, wg_ip, status) VALUES (?, ?, ?, ?, 'disconnected')`,
-        [routerId, wg_public_key, wg_private_key, wg_ip]
-      );
+        await conn.query(
+          `INSERT INTO wireguard_peers (router_id, public_key, private_key, wg_ip, status) VALUES (?, ?, ?, ?, 'disconnected')`,
+          [routerId, wg_public_key, wg_private_key, wg_ip]
+        );
 
-      console.log(`OK: id=${routerId} name="${name}" wg_ip=${wg_ip}`);
+        console.log(`OK: id=${routerId} name="${name}" wg_ip=${wg_ip}`);
+        inserted += 1;
 
-      if (doTest) {
-        const ok = await testTcp(wg_ip, api_port);
-        console.log(`    TCP ${wg_ip}:${api_port} -> ${ok ? 'open' : 'closed/filtered'}`);
+        if (doTest) {
+          const ok = await testTcp(wg_ip, api_port);
+          console.log(`    TCP ${wg_ip}:${api_port} -> ${ok ? 'open' : 'closed/filtered'}`);
+        }
+      } catch (err) {
+        failed += 1;
+        const msg = err?.message || String(err);
+        console.error(`FAIL: ${name} (${wg_ip}) — ${msg}`);
       }
     }
 
-    console.log('\nDone. Restart API: pm2 restart routerhub --update-env');
+    console.log(`\nSummary: inserted=${inserted}, skipped=${skipped}, failed=${failed}`);
+    console.log('Done. Restart API: pm2 restart routerhub --update-env');
     console.log('Optional: RECOVER_TEST_TCP=1 node db/recover-router-tunnel.js ... to probe API port.');
   } finally {
     await conn.end();
