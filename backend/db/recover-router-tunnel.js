@@ -79,6 +79,14 @@ async function main() {
       const wg_public_key = requireNonEmpty(r.wg_public_key, 'wg_public_key');
       const username = requireNonEmpty(r.username, 'username');
       const password = requireNonEmpty(r.password, 'password');
+      const api_port = parseInt(r.api_port, 10) || 8728;
+      const location = r.location != null ? String(r.location) : '';
+      const lan_ip = (r.lan_ip && String(r.lan_ip).trim()) || wg_ip;
+
+      if (used.has(wg_ip)) {
+        console.warn(`Skip (already in DB): ${name} ${wg_ip}`);
+        continue;
+      }
 
       let wg_private_key = (r.wg_private_key && String(r.wg_private_key).trim()) || '';
       if (needsPrivateKeyFetch(wg_private_key)) {
@@ -93,19 +101,10 @@ async function main() {
           wg_ip,
           username,
           password,
-          parseInt(r.api_port, 10) || 8728,
+          api_port,
           wg_public_key
         );
         console.log(`  OK`);
-      }
-
-      const api_port = parseInt(r.api_port, 10) || 8728;
-      const location = r.location != null ? String(r.location) : '';
-      const lan_ip = (r.lan_ip && String(r.lan_ip).trim()) || wg_ip;
-
-      if (used.has(wg_ip)) {
-        console.warn(`Skip (already in DB): ${name} ${wg_ip}`);
-        continue;
       }
 
       const [result] = await conn.query(

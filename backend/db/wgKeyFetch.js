@@ -3,7 +3,10 @@
  */
 const { RouterOSAPI } = require('node-routeros');
 
-const TIMEOUT_MS = 45000;
+const TIMEOUT_MS = Math.min(
+  Math.max(parseInt(process.env.WG_KEY_FETCH_TIMEOUT_MS || '45000', 10) || 45000, 5000),
+  300000
+);
 
 function normKey(k) {
   return String(k || '').trim();
