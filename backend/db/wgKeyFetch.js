@@ -73,9 +73,26 @@ async function fetchWireGuardPrivateKey(host, user, pass, port, expectedPublicKe
 function needsPrivateKeyFetch(v) {
   const s = normKey(v);
   if (!s) return true;
-  if (/paste|PASTE|YOUR_API|your_api|FROM_MIKROTIK/i.test(s)) return true;
+  if (/paste|PASTE|YOUR_API|your_api|FROM_MIKROTIK|PULL_VIA_API|pull_via_api/i.test(s)) return true;
   if (s.length < 40) return true;
   return false;
 }
 
-module.exports = { fetchWireGuardPrivateKey, needsPrivateKeyFetch, normKey };
+/** True if this router row should load wg_private_key from MikroTik API (--fetch-keys). */
+function shouldFetchPrivateKey(router, wgPrivateKeyValue) {
+  if (router && router.fetch_private_key === true) {
+    const s = normKey(wgPrivateKeyValue);
+    if (s.length >= 40 && !/paste|PASTE|YOUR_API|FROM_MIKROTIK|PULL_VIA_API|pull_via_api/i.test(s)) {
+      return false;
+    }
+    return true;
+  }
+  return needsPrivateKeyFetch(wgPrivateKeyValue);
+}
+
+module.exports = {
+  fetchWireGuardPrivateKey,
+  needsPrivateKeyFetch,
+  shouldFetchPrivateKey,
+  normKey,
+};

@@ -10,6 +10,7 @@
  *   pm2 restart routerhub --update-env
  *
  * --fetch-keys: pull wg_private_key from each router via API (run on VPS; needs API on 10.10.0.x).
+ * In JSON use "wg_private_key": "PULL_VIA_API" and/or "fetch_private_key": true on that object.
  * Vouchers/profiles/revenue need a MySQL backup to restore.
  *
  * You can list every site in routers-recovery.json; wg_ips already in `routers` are skipped — only missing rows are INSERTed.
@@ -18,7 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const net = require('net');
 const mysql = require('mysql2/promise');
-const { fetchWireGuardPrivateKey, needsPrivateKeyFetch } = require('./wgKeyFetch');
+const { fetchWireGuardPrivateKey, shouldFetchPrivateKey } = require('./wgKeyFetch');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 function requireNonEmpty(v, field) {
@@ -117,11 +118,10 @@ async function main() {
         }
 
         let wg_private_key = (r.wg_private_key && String(r.wg_private_key).trim()) || '';
-        if (needsPrivateKeyFetch(wg_private_key)) {
+        if (shouldFetchPrivateKey(r, wg_private_key)) {
           if (!fetchKeys) {
             throw new Error(
-              `Router "${name}" (${wg_ip}): wg_private_key missing or placeholder. ` +
-                `Run again with --fetch-keys (from VPS, API on ${wg_ip}:8728), or: node db/fetch-wg-private-keys.js`
+              `Router "${name}" (${wg_ip}): set wg_private_key or use PULL_VIA_API + run with --fetch-keys (API on ${wg_ip}:8728).`
             );
           }
           console.log(`Fetching WG private key via API: ${wg_ip} (${name})...`);

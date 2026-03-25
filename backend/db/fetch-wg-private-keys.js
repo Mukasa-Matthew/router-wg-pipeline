@@ -11,7 +11,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { fetchWireGuardPrivateKey, needsPrivateKeyFetch } = require('./wgKeyFetch');
+const { fetchWireGuardPrivateKey, shouldFetchPrivateKey } = require('./wgKeyFetch');
 
 async function main() {
   const inPath = path.resolve(process.argv[2] || path.join(__dirname, 'routers-recovery.json'));
@@ -31,7 +31,7 @@ async function main() {
 
   for (const r of raw.routers) {
     const name = r.name || r.wg_ip;
-    if (!needsPrivateKeyFetch(r.wg_private_key)) {
+    if (!shouldFetchPrivateKey(r, r.wg_private_key)) {
       console.log(`Skip (already has key): ${name}`);
       continue;
     }
