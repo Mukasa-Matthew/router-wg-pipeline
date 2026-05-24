@@ -19,6 +19,7 @@ node db/init.js
 node db/migrate.js
 node db/seed.js
 npm run dev
+This happened ghlists the best
 
 # Frontend (new terminal)
 cd frontend
